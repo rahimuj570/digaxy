@@ -1,0 +1,10 @@
+This folder contains mover profile bindings and controllers created by copy from driver module.
+Files created:
+- controllers/mover_profile_controller.dart
+- controllers/mover_edit_profile_controller.dart
+- bindings/mover_profile_binding.dart
+- bindings/mover_edit_profile_binding.dart
+- views/mover_profile_view.dart
+- views/mover_edit_profile_view.dart
+
+Remove this file if not needed.

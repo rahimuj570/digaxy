@@ -1,0 +1,132 @@
+import 'package:digaxy/shared/widgets/app_snackbar.dart';
+import 'package:flutter/material.dart';
+import 'package:get/get.dart';
+import 'package:digaxy/app/routes/app_pages.dart';
+import 'package:get_storage/get_storage.dart';
+import '../../../../../services/api/api_service.dart';
+
+class SettingsController extends GetxController {
+  final ApiService _api = Get.find<ApiService>();
+  final GetStorage _box = GetStorage();
+
+  final name = 'Joe Mitchell'.obs;
+  final email = 'joemitchell016@gmail.com'.obs;
+
+  final oldPassword = TextEditingController();
+  final newPassword = TextEditingController();
+  final confirmPassword = TextEditingController();
+
+  final supportEmail = TextEditingController(text: 'support@digaxy.com');
+  final supportMessage = TextEditingController();
+
+  @override
+  void onClose() {
+    oldPassword.dispose();
+    newPassword.dispose();
+    confirmPassword.dispose();
+    supportEmail.dispose();
+    supportMessage.dispose();
+    super.onClose();
+  }
+
+  Future<void> changePassword() async {
+    final oldPwd = oldPassword.text.trim();
+    final newPwd = newPassword.text.trim();
+    final confirmPwd = confirmPassword.text.trim();
+
+    if (oldPwd.isEmpty || newPwd.isEmpty || confirmPwd.isEmpty) {
+      AppSnackbar.show('Error', 'Please fill all password fields');
+      return;
+    }
+
+    // simple validation
+    if (newPwd != confirmPwd) {
+      AppSnackbar.show('Error', 'Passwords do not match');
+      return;
+    }
+
+    final accessToken = _box.read('access_token') as String?;
+    if (accessToken == null || accessToken.isEmpty) {
+      AppSnackbar.show('Error', 'You are not logged in');
+      Get.offAllNamed(Routes.AUTH_LOGIN);
+      return;
+    }
+
+    try {
+      await _api.changePassword(
+        oldPassword: oldPwd,
+        newPassword: newPwd,
+        accessToken: accessToken,
+      );
+    } catch (e) {
+      debugPrint('Change password error: $e');
+      AppSnackbar.error('Failed', e.toString());
+      return;
+    }
+
+    // Show a visible snackbar and wait a short moment before navigating back
+    AppSnackbar.success('Success', 'Password changed');
+
+    // Wait for the snackbar to be visible then close it and pop the screen
+    Future.delayed(Duration(milliseconds: 1200), () async {
+      try {
+        // close snackbar overlay first (if present)
+        Get.closeCurrentSnackbar();
+        // small pause to ensure overlay is removed
+        await Future.delayed(Duration(milliseconds: 100));
+        // try using Navigator with Get.context to pop the actual route
+        final ctx = Get.context;
+        if (ctx != null) {
+          try {
+            Navigator.of(ctx).pop();
+            return;
+          } catch (_) {}
+        }
+        // fallback to Get.back()
+        try {
+          Get.back();
+        } catch (_) {}
+      } catch (_) {}
+    });
+  }
+
+  void sendSupport() {
+    // Show success snackbar and go back to previous screen
+    AppSnackbar.success('Sent', 'Support request sent');
+
+    // wait then close snackbar and pop
+    Future.delayed(Duration(milliseconds: 1200), () async {
+      try {
+        Get.closeCurrentSnackbar();
+        await Future.delayed(Duration(milliseconds: 100));
+        final ctx = Get.context;
+        if (ctx != null) {
+          try {
+            Navigator.of(ctx).pop();
+            return;
+          } catch (_) {}
+        }
+        try {
+          Get.back();
+        } catch (_) {}
+      } catch (_) {}
+    });
+  }
+
+  void logout() {
+    if (!Get.isRegistered<SettingsController>()) {
+      Get.put<SettingsController>(SettingsController());
+    }
+
+    AppSnackbar.show('Logged out', 'You have been logged out');
+
+    Future.delayed(const Duration(milliseconds: 800), () {
+      try {
+        try {
+          Get.deleteAll(force: true);
+        } catch (_) {}
+        Get.offAllNamed(Routes.LANDING_ROLE);
+      } catch (_) {}
+    });
+  }
+}

@@ -11,11 +11,16 @@ extension ParcelApi on ApiService {
     required String driverPath,
     required int page,
     required int pageSize,
+    bool? isPaid,
   }) async {
     final role = _currentRole();
     final hasToken =
         (GetStorage().read('access_token') as String?)?.isNotEmpty == true;
     final query = {'page': '$page', 'page_size': '$pageSize'};
+    if (isPaid != null) {
+      query['is_paid'] =
+          isPaid.toString()[0].toUpperCase() + isPaid.toString().substring(1);
+    }
 
     if (_enableLogging) {
       debugPrint(
@@ -71,12 +76,14 @@ extension ParcelApi on ApiService {
   Future<Map<String, dynamic>> fetchPendingParcels({
     int page = 1,
     int pageSize = 20,
+    bool? isPaid,
   }) async {
     return await _getRoleAwareParcels(
       customerPath: '/customer/parcels/pending/',
       driverPath: '/driver/parcels/pending/',
       page: page,
       pageSize: pageSize,
+      isPaid: isPaid,
     );
   }
 
@@ -130,6 +137,21 @@ extension ParcelApi on ApiService {
       driverPath: '/driver/parcels/cancelled/',
       page: page,
       pageSize: pageSize,
+    );
+  }
+
+  /// Get payment due parcels
+  Future<Map<String, dynamic>> fetchPaymentDueParcels({
+    int page = 1,
+    int pageSize = 20,
+    bool? isPaid,
+  }) async {
+    return await _getRoleAwareParcels(
+      customerPath: '/customer/parcels/pending/',
+      driverPath: '/driver/parcels/pending/',
+      page: page,
+      pageSize: pageSize,
+      isPaid: isPaid,
     );
   }
 

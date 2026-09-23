@@ -31,7 +31,7 @@ class _MoverPaymentDialogState extends State<MoverPaymentDialog> {
       final api = Get.isRegistered<ApiService>()
           ? Get.find<ApiService>()
           : ApiService();
-
+      print('sssssssssssssssssssssssss');
       final resp = await api.createPaymentCheckout(parcelId: widget.parcelId);
       debugPrint('Payment checkout response: $resp');
 
@@ -80,7 +80,10 @@ class _MoverPaymentDialogState extends State<MoverPaymentDialog> {
     final next = {
       ...widget.bookingArgs,
       'parcelId': widget.parcelId,
+      'parcel_id': widget.parcelId,
+      'price': widget.price,
       'paymentStatus': 'pending',
+      'payment_status': 'pending',
     };
     Get.toNamed(Routes.MOVER_BOOKING_CONFIRMED, arguments: next);
   }

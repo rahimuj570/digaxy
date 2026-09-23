@@ -53,10 +53,13 @@ class _MoverPaymentWebViewState extends State<MoverPaymentWebView> {
   }
 
   void _handleResult({required bool isSuccess}) {
+    final status = isSuccess ? 'paid' : 'cancelled';
     final next = {
       ...widget.bookingArgs,
       'parcelId': widget.parcelId,
-      'paymentStatus': isSuccess ? 'paid' : 'cancelled',
+      'parcel_id': widget.parcelId,
+      'paymentStatus': status,
+      'payment_status': status,
     };
     Get.offAllNamed(Routes.MOVER_BOOKING_CONFIRMED, arguments: next);
   }

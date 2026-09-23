@@ -131,16 +131,20 @@ class _MoverScheduleViewState extends State<MoverScheduleView> {
       final parcelId = resp['parcel_id'] ?? resp['id'] ?? '';
       debugPrint('Extracted parcel_id: $parcelId');
 
-      // Prepare booking args
+      // Prepare booking args with full API response data
       final bookingArgs = {
         ...args,
+        ...resp,
         'scheduledDate': dateStr,
         'scheduledTime': timeStr,
         'estimatedPrice': _estimatedPrice,
         'totalPrice': _totalPrice(),
-        'paymentStatus': 'pending',
+        'price': resp['price'] ?? _totalPrice().toStringAsFixed(2),
+        'paymentStatus': resp['payment_status'] ?? 'pending',
+        'payment_status': resp['payment_status'] ?? 'pending',
         'apiResponse': resp,
         'parcelId': parcelId,
+        'parcel_id': parcelId,
       };
 
       // Payment will be collected after delivery; confirm booking directly.

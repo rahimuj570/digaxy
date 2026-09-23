@@ -30,13 +30,19 @@ class _MoverBookingsViewState extends State<MoverBookingsView> {
 
     Map<String, dynamic> resp;
     if (filter == 0) {
-      resp = await api.fetchPendingParcels(page: 1, pageSize: 20);
+      resp = await api.fetchPendingParcels(page: 1, pageSize: 20, isPaid: true);
     } else if (filter == 1) {
       resp = await api.fetchOnwayParcels(page: 1, pageSize: 20);
     } else if (filter == 2) {
       resp = await api.fetchDeliveredParcels(page: 1, pageSize: 20);
-    } else {
+    } else if (filter == 3) {
       resp = await api.fetchCancelledParcels(page: 1, pageSize: 20);
+    } else {
+      resp = await api.fetchPaymentDueParcels(
+        page: 1,
+        pageSize: 20,
+        isPaid: false,
+      );
     }
 
     final results = resp['results'];
@@ -258,7 +264,7 @@ class _MoverBookingsViewState extends State<MoverBookingsView> {
                           AlertDialog(
                             title: const Text('Cancel booking'),
                             content: const Text(
-                              'Are you sure you want to cancel this booking?',
+                              'Are you sure you want to cancel this booking?\nRefund will be processed within 5-10 business days!',
                             ),
                             actions: [
                               TextButton(
@@ -287,7 +293,7 @@ class _MoverBookingsViewState extends State<MoverBookingsView> {
                       ),
                     ),
                   if (onPay != null &&
-                      _bookingFilter == 2 &&
+                      _bookingFilter == 4 &&
                       !_isPaymentComplete(paymentStatus))
                     ElevatedButton(
                       style: ElevatedButton.styleFrom(
@@ -353,6 +359,9 @@ class _MoverBookingsViewState extends State<MoverBookingsView> {
                 pill('Completed', 2),
                 SizedBox(width: 8.w),
                 pill('Cancelled', 3),
+                SizedBox(width: 8.w),
+                pill('Payment Due', 4),
+                SizedBox(width: 8.w),
               ],
             ),
           ),

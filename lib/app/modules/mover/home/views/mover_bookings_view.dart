@@ -476,7 +476,18 @@ class _MoverBookingsViewState extends State<MoverBookingsView> {
                             'to': to,
                             'status': status,
                             'parcelId': parcelId,
-                            'driverPhone': '(555) 123-4567',
+                            'parcel_id': item['parcel_id'],
+                            'driverName': item['driver_name'] ??
+                                item['driver_user_name'] ??
+                                (item['driver'] is Map
+                                    ? item['driver']['name']
+                                    : null),
+                            'driverPhone': item['driver_phone'] ??
+                                item['driver_phone_number'] ??
+                                (item['driver'] is Map
+                                    ? item['driver']['phone_number']
+                                    : null),
+                            'item': item,
                           },
                         );
                       },

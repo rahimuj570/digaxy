@@ -14,11 +14,17 @@ class ProfileView extends GetView<ProfileController> {
       color: Colors.black,
       padding: EdgeInsets.symmetric(horizontal: 20.w, vertical: 20.h),
       child: SafeArea(
-        child: SingleChildScrollView(
-          physics: BouncingScrollPhysics(),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
+        child: RefreshIndicator(
+          color: AppColors.accent,
+          backgroundColor: Colors.grey[900],
+          onRefresh: () => controller.fetchProfile(),
+          child: SingleChildScrollView(
+            physics: const AlwaysScrollableScrollPhysics(
+              parent: BouncingScrollPhysics(),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
@@ -27,7 +33,7 @@ class ProfileView extends GetView<ProfileController> {
                     color: Colors.transparent,
                     child: InkWell(
                       borderRadius: BorderRadius.circular(6.r),
-                      splashColor: AppColors.accent.withOpacity(0.12),
+                      splashColor: AppColors.accent.withValues(alpha: 0.12),
                       onTap: () async {
                         // Navigate to edit profile. Use a microtask to ensure
                         // the tap event finishes before navigation (more reliable
@@ -73,8 +79,31 @@ class ProfileView extends GetView<ProfileController> {
                     height: 100.w,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
-                      color: Colors.white,
+                      color: const Color(0xFF2A2A2A),
                     ),
+                    child: Obx(() {
+                      final pic = controller.profilePictureUrl.value.trim();
+                      if (pic.isNotEmpty && pic != 'null') {
+                        return ClipOval(
+                          child: Image.network(
+                            pic,
+                            width: 100.w,
+                            height: 100.w,
+                            fit: BoxFit.cover,
+                            errorBuilder: (context, error, stackTrace) => Icon(
+                              Icons.person,
+                              size: 50.w,
+                              color: AppColors.accent,
+                            ),
+                          ),
+                        );
+                      }
+                      return Icon(
+                        Icons.person,
+                        size: 50.w,
+                        color: AppColors.accent,
+                      );
+                    }),
                   ),
                   Positioned(
                     right: 0,
@@ -83,13 +112,13 @@ class ProfileView extends GetView<ProfileController> {
                       width: 28.w,
                       height: 28.w,
                       decoration: BoxDecoration(
-                        color: Colors.grey.shade300,
+                        color: AppColors.accent,
                         shape: BoxShape.circle,
                       ),
                       child: Icon(
                         Icons.camera_alt,
                         size: 16.w,
-                        color: Colors.grey[800],
+                        color: Colors.black,
                       ),
                     ),
                   ),
@@ -215,23 +244,42 @@ class ProfileView extends GetView<ProfileController> {
                 ),
               ),
               SizedBox(height: 12.h),
-              Obx(
-                () => _infoRow(
+              Obx(() {
+                final lat = controller.currentLatitude.value.trim();
+                final lng = controller.currentLongitude.value.trim();
+                final address = controller.humanReadableAddress.value.trim();
+                final hasCoords = lat.isNotEmpty &&
+                    lng.isNotEmpty &&
+                    lat != 'null' &&
+                    lng != 'null';
+
+                final coordsText = hasCoords ? '$lat, $lng' : 'Not Available';
+                final mainText = address.isNotEmpty
+                    ? address
+                    : (hasCoords
+                        ? 'Current Location: $coordsText'
+                        : 'Location Not Set');
+                final subText = address.isNotEmpty ? '($coordsText)' : null;
+
+                return _infoRow(
                   Icons.location_on,
-                  'Current Location: ${controller.currentLatitude.value}, ${controller.currentLongitude.value}',
-                ),
-              ),
+                  mainText,
+                  subtitle: subText,
+                );
+              }),
 
               SizedBox(height: 32.h),
             ],
           ),
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 
-  Widget _infoRow(IconData icon, String text) {
+  Widget _infoRow(IconData icon, String text, {String? subtitle}) {
     return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Container(
           width: 36.w,
@@ -244,7 +292,29 @@ class ProfileView extends GetView<ProfileController> {
         ),
         SizedBox(width: 12.w),
         Expanded(
-          child: Text(text, style: TextStyle(color: AppColors.textPrimary)),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                text,
+                style: TextStyle(
+                  color: AppColors.textPrimary,
+                  fontSize: 14.sp,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              if (subtitle != null && subtitle.isNotEmpty) ...[
+                SizedBox(height: 2.h),
+                Text(
+                  subtitle,
+                  style: TextStyle(
+                    color: AppColors.textSecondary,
+                    fontSize: 12.sp,
+                  ),
+                ),
+              ],
+            ],
+          ),
         ),
       ],
     );

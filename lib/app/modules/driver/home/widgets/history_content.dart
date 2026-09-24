@@ -88,6 +88,21 @@ class _HistoryContentState extends State<HistoryContent> {
     }
   }
 
+  Future<void> _handleRefresh() async {
+    setState(() {
+      _ongoingFuture = _fetchOngoingParcels();
+      _acceptedFuture = _fetchAcceptedParcels();
+      _completedFuture = _fetchCompletedParcels();
+    });
+    try {
+      await Future.wait([
+        _ongoingFuture,
+        _acceptedFuture,
+        _completedFuture,
+      ]);
+    } catch (_) {}
+  }
+
   double? _toDouble(dynamic value) {
     final text = value?.toString().trim() ?? '';
     if (text.isEmpty) return null;
@@ -118,10 +133,10 @@ class _HistoryContentState extends State<HistoryContent> {
           'deliveryStatus': (item['delivery_status'] ?? '').toString(),
           'pickup': (item['pickup_address'] ?? '').toString(),
           'dropoff': (item['drop_address'] ?? '').toString(),
-          if (pickupLat != null) 'pickupLat': pickupLat,
-          if (pickupLng != null) 'pickupLng': pickupLng,
-          if (dropLat != null) 'dropLat': dropLat,
-          if (dropLng != null) 'dropLng': dropLng,
+          'pickupLat': ?pickupLat,
+          'pickupLng': ?pickupLng,
+          'dropLat': ?dropLat,
+          'dropLng': ?dropLng,
           'customerName': (item['pickup_user_name'] ?? '').toString(),
         },
       );
@@ -305,11 +320,17 @@ class _HistoryContentState extends State<HistoryContent> {
       );
     }
 
-    return SingleChildScrollView(
-      physics: BouncingScrollPhysics(),
-      child: Padding(
-        padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
-        child: FutureBuilder<List<List<Map<String, dynamic>>>>(
+    return RefreshIndicator(
+      color: AppColors.accent,
+      backgroundColor: Colors.grey[900],
+      onRefresh: _handleRefresh,
+      child: SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(
+          parent: BouncingScrollPhysics(),
+        ),
+        child: Padding(
+          padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
+          child: FutureBuilder<List<List<Map<String, dynamic>>>>(
           future: Future.wait([
             _ongoingFuture,
             _acceptedFuture,
@@ -439,6 +460,9 @@ class _HistoryContentState extends State<HistoryContent> {
           },
         ),
       ),
-    );
-  }
+    ),
+  );
 }
+}
+
+

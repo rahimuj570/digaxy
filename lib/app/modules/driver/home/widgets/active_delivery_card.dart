@@ -92,9 +92,22 @@ class ActiveDeliveryCard extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('Distance', style: TextStyle(color: Colors.white54)),
-                      SizedBox(height: 6.h),
-                      Text(distance, style: TextStyle(color: Colors.white)),
+                      Text(
+                        'Distance',
+                        style: TextStyle(
+                          color: Colors.white54,
+                          fontSize: 12.sp,
+                        ),
+                      ),
+                      SizedBox(height: 4.h),
+                      Text(
+                        _formatDistance(distance),
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 14.sp,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
                     ],
                   ),
                 ),
@@ -104,11 +117,21 @@ class ActiveDeliveryCard extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Estimate Time',
-                        style: TextStyle(color: Colors.white54),
+                        'Estimated Time',
+                        style: TextStyle(
+                          color: Colors.white54,
+                          fontSize: 12.sp,
+                        ),
                       ),
-                      SizedBox(height: 6.h),
-                      Text(eta, style: TextStyle(color: Colors.white)),
+                      SizedBox(height: 4.h),
+                      Text(
+                        _formatEta(eta),
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 14.sp,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
                     ],
                   ),
                 ),
@@ -118,5 +141,40 @@ class ActiveDeliveryCard extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  String _formatDistance(String val) {
+    final trimmed = val.trim();
+    if (trimmed.isEmpty || trimmed == '--' || trimmed == 'null') return '--';
+    if (trimmed.toLowerCase().contains('km') ||
+        trimmed.toLowerCase().contains('mi') ||
+        trimmed.toLowerCase().contains('m')) {
+      return trimmed;
+    }
+    final numVal = double.tryParse(trimmed);
+    if (numVal != null) {
+      return '${numVal.toStringAsFixed(1)} km';
+    }
+    return trimmed;
+  }
+
+  String _formatEta(String val) {
+    final trimmed = val.trim();
+    if (trimmed.isEmpty || trimmed == '--' || trimmed == 'null') return '--';
+    if (trimmed.toLowerCase().contains('min') ||
+        trimmed.toLowerCase().contains('hr') ||
+        trimmed.toLowerCase().contains('sec')) {
+      return trimmed;
+    }
+    final numVal = int.tryParse(trimmed) ?? double.tryParse(trimmed)?.round();
+    if (numVal != null) {
+      if (numVal >= 60) {
+        final hrs = numVal ~/ 60;
+        final mins = numVal % 60;
+        return mins > 0 ? '$hrs hr $mins mins' : '$hrs hr';
+      }
+      return '$numVal mins';
+    }
+    return trimmed;
   }
 }

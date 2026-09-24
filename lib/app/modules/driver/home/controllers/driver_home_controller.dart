@@ -199,71 +199,153 @@ class DriverHomeController extends GetxController {
   Future<Map<String, dynamic>> _attachRouteMetrics(
     Map<String, dynamic> parcel,
   ) async {
-    final pickupLat = _toDouble(parcel['ping']);
-    final pickupLng = _toDouble(parcel['pong']);
-    final dropLat = _toDouble(parcel['ding']);
-    final dropLng = _toDouble(parcel['dong']);
+    final pickupLat = _toDouble(
+      parcel['ping'] ??
+          parcel['pickup_lat'] ??
+          parcel['pickup_latitude'] ??
+          parcel['pickupLatitude'],
+    );
+    final pickupLng = _toDouble(
+      parcel['pong'] ??
+          parcel['pickup_lng'] ??
+          parcel['pickup_longitude'] ??
+          parcel['pickupLongitude'],
+    );
+    final dropLat = _toDouble(
+      parcel['ding'] ??
+          parcel['drop_lat'] ??
+          parcel['dropoff_latitude'] ??
+          parcel['dropoffLatitude'] ??
+          parcel['drop_latitude'],
+    );
+    final dropLng = _toDouble(
+      parcel['dong'] ??
+          parcel['drop_lng'] ??
+          parcel['dropoff_longitude'] ??
+          parcel['dropoffLongitude'] ??
+          parcel['drop_longitude'],
+    );
 
-    if (pickupLat == null ||
-        pickupLng == null ||
-        dropLat == null ||
-        dropLng == null) {
-      return {
-        ...parcel,
-        'gm_distance_text': (parcel['estimated_distance_km'] ?? '--')
-            .toString(),
-        'gm_eta_text': (parcel['estimated_time_minutes'] ?? '--').toString(),
-      };
-    }
+    String distanceText = _formatDistance(
+      parcel['estimated_distance_km'] ??
+          parcel['estimated_distance'] ??
+          parcel['distance'],
+    );
+    String etaText = _formatEta(
+      parcel['estimated_time_minutes'] ??
+          parcel['estimated_time'] ??
+          parcel['estimated_duration'] ??
+          parcel['eta'] ??
+          parcel['duration'],
+    );
 
-    try {
-      final uri =
-          Uri.https('maps.googleapis.com', '/maps/api/directions/json', {
+    if (pickupLat != null &&
+        pickupLng != null &&
+        dropLat != null &&
+        dropLng != null) {
+      // Fallback calculation via Geolocator
+      if (distanceText == '--' || distanceText.isEmpty) {
+        final distMeters = Geolocator.distanceBetween(
+          pickupLat,
+          pickupLng,
+          dropLat,
+          dropLng,
+        );
+        final distKm = distMeters / 1000.0;
+        distanceText = '${distKm.toStringAsFixed(1)} km';
+        if (etaText == '--' || etaText.isEmpty) {
+          final estMinutes = (distKm / 35.0 * 60).round().clamp(1, 9999);
+          etaText = estMinutes >= 60
+              ? '${estMinutes ~/ 60} hr ${estMinutes % 60} mins'
+              : '$estMinutes mins';
+        }
+      }
+
+      // High-accuracy Google Directions API call
+      try {
+        final uri = Uri.https(
+          'maps.googleapis.com',
+          '/maps/api/directions/json',
+          {
             'origin': '$pickupLat,$pickupLng',
             'destination': '$dropLat,$dropLng',
             'mode': 'driving',
             'key': ApiKeys.googleMapsApiKey,
-          });
-      final response = await http.get(uri);
-      if (response.statusCode < 200 || response.statusCode >= 300) {
-        return parcel;
-      }
-
-      final decoded = jsonDecode(response.body);
-      if (decoded is! Map<String, dynamic>) return parcel;
-      final routes = decoded['routes'];
-      if (routes is! List || routes.isEmpty) return parcel;
-      final firstRoute = routes.first;
-      if (firstRoute is! Map) return parcel;
-      final legs = firstRoute['legs'];
-      if (legs is! List || legs.isEmpty) return parcel;
-      final firstLeg = legs.first;
-      if (firstLeg is! Map) return parcel;
-
-      final distanceText = (firstLeg['distance'] is Map)
-          ? ((firstLeg['distance']['text'] ?? '').toString())
-          : '';
-      final durationText = (firstLeg['duration'] is Map)
-          ? ((firstLeg['duration']['text'] ?? '').toString())
-          : '';
-
-      return {
-        ...parcel,
-        'gm_distance_text': distanceText.isEmpty
-            ? (parcel['estimated_distance_km'] ?? '--').toString()
-            : distanceText,
-        'gm_eta_text': durationText.isEmpty
-            ? (parcel['estimated_time_minutes'] ?? '--').toString()
-            : durationText,
-      };
-    } catch (_) {
-      return {
-        ...parcel,
-        'gm_distance_text': (parcel['estimated_distance_km'] ?? '--')
-            .toString(),
-        'gm_eta_text': (parcel['estimated_time_minutes'] ?? '--').toString(),
-      };
+          },
+        );
+        final response = await http
+            .get(uri)
+            .timeout(const Duration(seconds: 4));
+        if (response.statusCode >= 200 && response.statusCode < 300) {
+          final decoded = jsonDecode(response.body);
+          if (decoded is Map<String, dynamic>) {
+            final routes = decoded['routes'];
+            if (routes is List && routes.isNotEmpty) {
+              final firstRoute = routes.first;
+              if (firstRoute is Map) {
+                final legs = firstRoute['legs'];
+                if (legs is List && legs.isNotEmpty) {
+                  final firstLeg = legs.first;
+                  if (firstLeg is Map) {
+                    final gDist = firstLeg['distance']?['text']?.toString();
+                    final gDur = firstLeg['duration']?['text']?.toString();
+                    if (gDist != null && gDist.trim().isNotEmpty) {
+                      distanceText = gDist.trim();
+                    }
+                    if (gDur != null && gDur.trim().isNotEmpty) {
+                      etaText = gDur.trim();
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      } catch (_) {}
     }
+
+    return {
+      ...parcel,
+      'gm_distance_text': distanceText.isEmpty ? '--' : distanceText,
+      'gm_eta_text': etaText.isEmpty ? '--' : etaText,
+    };
+  }
+
+  String _formatDistance(dynamic raw) {
+    if (raw == null) return '--';
+    final str = raw.toString().trim();
+    if (str.isEmpty || str == '--') return '--';
+    if (str.toLowerCase().contains('km') ||
+        str.toLowerCase().contains('mi') ||
+        str.toLowerCase().contains('m')) {
+      return str;
+    }
+    final numVal = double.tryParse(str);
+    if (numVal != null) {
+      return '${numVal.toStringAsFixed(1)} km';
+    }
+    return str;
+  }
+
+  String _formatEta(dynamic raw) {
+    if (raw == null) return '--';
+    final str = raw.toString().trim();
+    if (str.isEmpty || str == '--') return '--';
+    if (str.toLowerCase().contains('min') ||
+        str.toLowerCase().contains('hr') ||
+        str.toLowerCase().contains('sec')) {
+      return str;
+    }
+    final numVal = int.tryParse(str) ?? double.tryParse(str)?.round();
+    if (numVal != null) {
+      if (numVal >= 60) {
+        final hrs = numVal ~/ 60;
+        final mins = numVal % 60;
+        return mins > 0 ? '$hrs hr $mins mins' : '$hrs hr';
+      }
+      return '$numVal mins';
+    }
+    return str;
   }
 
   double? _toDouble(dynamic value) {

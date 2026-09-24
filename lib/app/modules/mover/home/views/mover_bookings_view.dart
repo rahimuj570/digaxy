@@ -60,6 +60,15 @@ class _MoverBookingsViewState extends State<MoverBookingsView> {
     });
   }
 
+  Future<void> _handleRefresh() async {
+    setState(() {
+      _future = _fetchParcelsForFilter(_bookingFilter);
+    });
+    try {
+      await _future;
+    } catch (_) {}
+  }
+
   Widget pill(String label, int idx) {
     final selected = _bookingFilter == idx;
     return GestureDetector(
@@ -367,53 +376,72 @@ class _MoverBookingsViewState extends State<MoverBookingsView> {
           ),
           SizedBox(height: 12.h),
           Expanded(
-            child: FutureBuilder<List<Map<String, dynamic>>>(
-              future: _future,
-              builder: (context, snapshot) {
-                if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const Center(child: CircularProgressIndicator());
-                }
-                if (snapshot.hasError) {
-                  return Center(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
+            child: RefreshIndicator(
+              color: AppColors.accent,
+              backgroundColor: Colors.grey[900],
+              onRefresh: _handleRefresh,
+              child: FutureBuilder<List<Map<String, dynamic>>>(
+                future: _future,
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return const Center(child: CircularProgressIndicator());
+                  }
+                  if (snapshot.hasError) {
+                    return ListView(
+                      physics: const AlwaysScrollableScrollPhysics(),
                       children: [
-                        const Text(
-                          'Failed to load bookings',
-                          style: TextStyle(color: Colors.white70),
-                        ),
-                        SizedBox(height: 8.h),
-                        Text(
-                          snapshot.error.toString(),
-                          style: const TextStyle(color: Colors.white38),
-                          textAlign: TextAlign.center,
-                        ),
-                        SizedBox(height: 12.h),
-                        OutlinedButton(
-                          onPressed: () => setState(() {
-                            _future = _fetchParcelsForFilter(_bookingFilter);
-                          }),
-                          child: const Text('Retry'),
+                        SizedBox(height: 120.h),
+                        Center(
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Text(
+                                'Failed to load bookings',
+                                style: TextStyle(color: Colors.white70),
+                              ),
+                              SizedBox(height: 8.h),
+                              Text(
+                                snapshot.error.toString(),
+                                style: const TextStyle(color: Colors.white38),
+                                textAlign: TextAlign.center,
+                              ),
+                              SizedBox(height: 12.h),
+                              OutlinedButton(
+                                onPressed: () => setState(() {
+                                  _future =
+                                      _fetchParcelsForFilter(_bookingFilter);
+                                }),
+                                child: const Text('Retry'),
+                              ),
+                            ],
+                          ),
                         ),
                       ],
-                    ),
-                  );
-                }
+                    );
+                  }
 
-                final data = snapshot.data ?? [];
-                if (data.isEmpty) {
-                  return const Center(
-                    child: Text(
-                      'No bookings found',
-                      style: TextStyle(color: Colors.white70),
-                    ),
-                  );
-                }
+                  final data = snapshot.data ?? [];
+                  if (data.isEmpty) {
+                    return ListView(
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      children: [
+                        SizedBox(height: 140.h),
+                        const Center(
+                          child: Text(
+                            'No bookings found',
+                            style: TextStyle(color: Colors.white70),
+                          ),
+                        ),
+                      ],
+                    );
+                  }
 
-                return ListView.builder(
-                  physics: const BouncingScrollPhysics(),
-                  itemCount: data.length,
-                  itemBuilder: (context, index) {
+                  return ListView.builder(
+                    physics: const AlwaysScrollableScrollPhysics(
+                      parent: BouncingScrollPhysics(),
+                    ),
+                    itemCount: data.length,
+                    itemBuilder: (context, index) {
                     final item = data[index];
                     final title =
                         'Booking ${item['parcel_id'] ?? '#'} - ${item['vehicle_type'] ?? ''}';
@@ -516,6 +544,7 @@ class _MoverBookingsViewState extends State<MoverBookingsView> {
               },
             ),
           ),
+        ),
         ],
       ),
     );

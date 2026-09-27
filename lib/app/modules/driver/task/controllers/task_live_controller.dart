@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:math' as math;
 
 import 'package:digaxy/shared/api_keys.dart';
 import 'package:digaxy/services/api/api_service.dart';
@@ -19,6 +20,8 @@ class TaskLiveController extends GetxController {
   final eta = '--'.obs;
   final customerName = ''.obs;
   final customerTax = 'TAX 2345'.obs;
+
+  GoogleMapController? mapController;
 
   final pickupAddress = ''.obs;
   final dropoffAddress = ''.obs;
@@ -321,15 +324,15 @@ class TaskLiveController extends GetxController {
     }
   }
 
-  Future<void> confirmDropoff() async {
+  Future<bool> confirmDropoff() async {
     final id = parcelNumericId.value;
     if (id == null) {
       Get.snackbar('Error', 'Missing parcel numeric id');
-      return;
+      return false;
     }
     if (dropoffPhotoPath.value.isEmpty) {
-      Get.snackbar('Required', 'Take dropoff photo first');
-      return;
+      Get.snackbar('Required', 'Take drop-off photo first');
+      return false;
     }
 
     try {
@@ -337,15 +340,114 @@ class TaskLiveController extends GetxController {
       await _api.uploadDropoffProofImage(
         id: id,
         imagePath: dropoffPhotoPath.value,
+        action: 'send_otp',
       );
-      Get.snackbar('Success', 'Delivery completed');
-      await Future.delayed(const Duration(milliseconds: 900));
-      Get.offAllNamed('/driver/home');
+      Get.snackbar('Success', 'OTP sent successfully');
+      return true;
     } catch (e) {
-      Get.snackbar('Error', 'Failed to confirm dropoff');
+      Get.snackbar('Error', e.toString().replaceAll('Exception: ', ''));
+      return false;
     } finally {
       isSubmittingDropoff.value = false;
     }
+  }
+
+  Future<bool> confirmDropoffWithOtp(String otp) async {
+    final id = parcelNumericId.value;
+    if (id == null) {
+      Get.snackbar('Error', 'Missing parcel numeric id');
+      return false;
+    }
+    if (dropoffPhotoPath.value.isEmpty) {
+      Get.snackbar('Required', 'Take drop-off photo first');
+      return false;
+    }
+    final cleanOtp = otp.trim();
+    if (cleanOtp.length < 4) {
+      Get.snackbar('Required', 'Please enter a valid 4-digit OTP');
+      return false;
+    }
+
+    try {
+      isSubmittingDropoff.value = true;
+      await _api.uploadDropoffProofImage(
+        id: id,
+        imagePath: dropoffPhotoPath.value,
+        action: 'verify_otp',
+        otp: cleanOtp,
+      );
+      if (Get.isDialogOpen == true || Get.isBottomSheetOpen == true) {
+        Get.back();
+      }
+      Get.snackbar('Success', 'Delivery completed successfully');
+      await Future.delayed(const Duration(milliseconds: 900));
+      Get.offAllNamed('/driver/home');
+      return true;
+    } catch (e) {
+      Get.snackbar('Error', e.toString().replaceAll('Exception: ', ''));
+      return false;
+    } finally {
+      isSubmittingDropoff.value = false;
+    }
+  }
+
+  void onMapCreated(GoogleMapController controller) {
+    mapController = controller;
+    Future.delayed(const Duration(milliseconds: 300), () {
+      fitRouteBounds();
+    });
+  }
+
+  void fitRouteBounds({double padding = 60.0}) {
+    if (mapController == null) return;
+    final points = <LatLng>[];
+    if (routePoints.isNotEmpty) {
+      points.addAll(routePoints);
+    } else {
+      if (currentLat.value != null && currentLng.value != null) {
+        points.add(LatLng(currentLat.value!, currentLng.value!));
+      }
+      final targetLat = isPickedUp.value ? dropLat.value : pickupLat.value;
+      final targetLng = isPickedUp.value ? dropLng.value : pickupLng.value;
+      if (targetLat != null && targetLng != null) {
+        points.add(LatLng(targetLat, targetLng));
+      }
+    }
+
+    if (points.isEmpty) return;
+
+    if (points.length == 1) {
+      mapController?.animateCamera(
+        CameraUpdate.newCameraPosition(
+          CameraPosition(target: points.first, zoom: 15),
+        ),
+      );
+      return;
+    }
+
+    double minLat = points.first.latitude;
+    double maxLat = points.first.latitude;
+    double minLng = points.first.longitude;
+    double maxLng = points.first.longitude;
+
+    for (final p in points) {
+      minLat = math.min(minLat, p.latitude);
+      maxLat = math.max(maxLat, p.latitude);
+      minLng = math.min(minLng, p.longitude);
+      maxLng = math.max(maxLng, p.longitude);
+    }
+
+    try {
+      mapController?.animateCamera(
+        CameraUpdate.newLatLngBounds(
+          LatLngBounds(
+            southwest: LatLng(minLat, minLng),
+            northeast: LatLng(maxLat, maxLng),
+          ),
+          padding,
+        ),
+      );
+    } catch (_) {}
   }
 
   Future<void> openDirections() async {
@@ -368,6 +470,7 @@ class TaskLiveController extends GetxController {
 
     isMapFullscreen.value = true;
     await _refreshRoute(force: true);
+    fitRouteBounds();
   }
 
   double? _toDouble(dynamic value) {
@@ -436,6 +539,7 @@ class TaskLiveController extends GetxController {
 
       routePoints.assignAll(_decodePolyline(encoded));
       _lastRouteFetchAt = DateTime.now();
+      fitRouteBounds();
     } catch (_) {
     } finally {
       isLoadingRoute.value = false;

@@ -1,6 +1,8 @@
 import 'dart:io';
 
 import 'package:digaxy/shared/app_colors.dart';
+import 'package:flutter/foundation.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:get/get.dart';
@@ -26,6 +28,80 @@ class TaskLiveView extends GetView<TaskLiveController> {
             : _buildNormalView(),
       ),
     );
+  }
+
+  Set<Marker> _buildMarkers({
+    required bool hasCurrent,
+    required double? currentLat,
+    required double? currentLng,
+    required bool hasPickup,
+    required double? pickupLat,
+    required double? pickupLng,
+    required bool hasDrop,
+    required double? dropLat,
+    required double? dropLng,
+    required bool onPickupStage,
+  }) {
+    final markers = <Marker>{};
+
+    if (hasCurrent && currentLat != null && currentLng != null) {
+      markers.add(
+        Marker(
+          markerId: const MarkerId('driver_current'),
+          position: LatLng(currentLat, currentLng),
+          infoWindow: const InfoWindow(title: 'My Location'),
+          icon: BitmapDescriptor.defaultMarkerWithHue(
+            BitmapDescriptor.hueAzure,
+          ),
+          zIndexInt: 10,
+        ),
+      );
+    }
+
+    if (hasPickup && pickupLat != null && pickupLng != null) {
+      markers.add(
+        Marker(
+          markerId: const MarkerId('pickup_point'),
+          position: LatLng(pickupLat, pickupLng),
+          infoWindow: const InfoWindow(title: 'Pickup Point'),
+          icon: BitmapDescriptor.defaultMarkerWithHue(
+            onPickupStage ? BitmapDescriptor.hueRed : BitmapDescriptor.hueGreen,
+          ),
+        ),
+      );
+    }
+
+    if (hasDrop && dropLat != null && dropLng != null) {
+      markers.add(
+        Marker(
+          markerId: const MarkerId('dropoff_point'),
+          position: LatLng(dropLat, dropLng),
+          infoWindow: const InfoWindow(title: 'Drop-off Point'),
+          icon: BitmapDescriptor.defaultMarkerWithHue(
+            !onPickupStage
+                ? BitmapDescriptor.hueRed
+                : BitmapDescriptor.hueViolet,
+          ),
+        ),
+      );
+    }
+
+    return markers;
+  }
+
+  Set<Polyline> _buildPolylines() {
+    final polylines = <Polyline>{};
+    if (controller.routePoints.length > 1) {
+      polylines.add(
+        Polyline(
+          polylineId: const PolylineId('active_route'),
+          color: AppColors.accent,
+          width: 5,
+          points: controller.routePoints.toList(),
+        ),
+      );
+    }
+    return polylines;
   }
 
   Widget _buildNormalView() {
@@ -64,61 +140,20 @@ class TaskLiveView extends GetView<TaskLiveController> {
           final hasPickup = pickupLat != null && pickupLng != null;
           final hasDrop = dropLat != null && dropLng != null;
 
-          final markers = <Marker>{};
-          if (hasCurrent) {
-            markers.add(
-              Marker(
-                markerId: const MarkerId('driver_current'),
-                position: LatLng(currentLat, currentLng),
-                infoWindow: const InfoWindow(title: 'My Location'),
-                icon: BitmapDescriptor.defaultMarkerWithHue(
-                  BitmapDescriptor.hueAzure,
-                ),
-                zIndexInt: 10,
-              ),
-            );
-          }
-          if (hasTarget) {
-            markers.add(
-              Marker(
-                markerId: MarkerId(onPickupStage ? 'pickup' : 'dropoff'),
-                position: LatLng(targetLat, targetLng),
-                infoWindow: InfoWindow(
-                  title: onPickupStage ? 'Pickup Point' : 'Drop-off Point',
-                ),
-              ),
-            );
-          }
-          if (hasPickup) {
-            markers.add(
-              Marker(
-                markerId: const MarkerId('pickup_point'),
-                position: LatLng(pickupLat, pickupLng),
-                infoWindow: const InfoWindow(title: 'Pickup Point'),
-              ),
-            );
-          }
-          if (hasDrop) {
-            markers.add(
-              Marker(
-                markerId: const MarkerId('dropoff_point'),
-                position: LatLng(dropLat, dropLng),
-                infoWindow: const InfoWindow(title: 'Drop-off Point'),
-              ),
-            );
-          }
+          final markers = _buildMarkers(
+            hasCurrent: hasCurrent,
+            currentLat: currentLat,
+            currentLng: currentLng,
+            hasPickup: hasPickup,
+            pickupLat: pickupLat,
+            pickupLng: pickupLng,
+            hasDrop: hasDrop,
+            dropLat: dropLat,
+            dropLng: dropLng,
+            onPickupStage: onPickupStage,
+          );
 
-          final polylines = <Polyline>{};
-          if (controller.routePoints.length > 1) {
-            polylines.add(
-              Polyline(
-                polylineId: const PolylineId('active_route'),
-                color: AppColors.accent,
-                width: 5,
-                points: controller.routePoints.toList(),
-              ),
-            );
-          }
+          final polylines = _buildPolylines();
 
           final mapCameraTarget = hasCurrent
               ? LatLng(currentLat, currentLng)
@@ -239,61 +274,20 @@ class TaskLiveView extends GetView<TaskLiveController> {
         final hasPickup = pickupLat != null && pickupLng != null;
         final hasDrop = dropLat != null && dropLng != null;
 
-        final markers = <Marker>{};
-        if (hasCurrent) {
-          markers.add(
-            Marker(
-              markerId: const MarkerId('driver_current'),
-              position: LatLng(currentLat, currentLng),
-              infoWindow: const InfoWindow(title: 'My Location'),
-              icon: BitmapDescriptor.defaultMarkerWithHue(
-                BitmapDescriptor.hueAzure,
-              ),
-              zIndexInt: 10,
-            ),
-          );
-        }
-        if (hasTarget) {
-          markers.add(
-            Marker(
-              markerId: MarkerId(onPickupStage ? 'pickup' : 'dropoff'),
-              position: LatLng(targetLat, targetLng),
-              infoWindow: InfoWindow(
-                title: onPickupStage ? 'Pickup Point' : 'Drop-off Point',
-              ),
-            ),
-          );
-        }
-        if (hasPickup) {
-          markers.add(
-            Marker(
-              markerId: const MarkerId('pickup_point'),
-              position: LatLng(pickupLat, pickupLng),
-              infoWindow: const InfoWindow(title: 'Pickup Point'),
-            ),
-          );
-        }
-        if (hasDrop) {
-          markers.add(
-            Marker(
-              markerId: const MarkerId('dropoff_point'),
-              position: LatLng(dropLat, dropLng),
-              infoWindow: const InfoWindow(title: 'Drop-off Point'),
-            ),
-          );
-        }
+        final markers = _buildMarkers(
+          hasCurrent: hasCurrent,
+          currentLat: currentLat,
+          currentLng: currentLng,
+          hasPickup: hasPickup,
+          pickupLat: pickupLat,
+          pickupLng: pickupLng,
+          hasDrop: hasDrop,
+          dropLat: dropLat,
+          dropLng: dropLng,
+          onPickupStage: onPickupStage,
+        );
 
-        final polylines = <Polyline>{};
-        if (controller.routePoints.length > 1) {
-          polylines.add(
-            Polyline(
-              polylineId: const PolylineId('active_route'),
-              color: AppColors.accent,
-              width: 5,
-              points: controller.routePoints.toList(),
-            ),
-          );
-        }
+        final polylines = _buildPolylines();
 
         final mapCameraTarget = hasCurrent
             ? LatLng(currentLat, currentLng)
@@ -337,6 +331,12 @@ class TaskLiveView extends GetView<TaskLiveController> {
                 target: mapCameraTarget,
                 zoom: 14,
               ),
+              onMapCreated: controller.onMapCreated,
+              gestureRecognizers: <Factory<OneSequenceGestureRecognizer>>{
+                Factory<OneSequenceGestureRecognizer>(
+                  () => EagerGestureRecognizer(),
+                ),
+              },
               myLocationEnabled: hasCurrent,
               myLocationButtonEnabled: true,
               zoomControlsEnabled: false,
@@ -345,45 +345,33 @@ class TaskLiveView extends GetView<TaskLiveController> {
             ),
           ),
         ),
-        // Fullscreen toggle button
-        if (showFullscreenButton)
-          Positioned(
-            top: 10.h,
-            right: 10.w,
-            child: Container(
-              decoration: BoxDecoration(
-                color: Colors.white,
-                shape: BoxShape.circle,
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black26,
-                    blurRadius: 4,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
-              ),
-              child: Material(
-                color: Colors.transparent,
-                child: InkWell(
+        // Map action buttons (Fullscreen & Re-center/Fit Route)
+        Positioned(
+          top: 10.h,
+          right: 10.w,
+          child: Column(
+            children: [
+              if (showFullscreenButton)
+                _mapActionButton(
+                  icon: controller.isMapFullscreen.value
+                      ? Icons.fullscreen_exit
+                      : Icons.fullscreen,
                   onTap: () {
                     controller.isMapFullscreen.value =
                         !controller.isMapFullscreen.value;
+                    Future.delayed(const Duration(milliseconds: 250), () {
+                      controller.fitRouteBounds();
+                    });
                   },
-                  customBorder: const CircleBorder(),
-                  child: Padding(
-                    padding: EdgeInsets.all(10.w),
-                    child: Icon(
-                      controller.isMapFullscreen.value
-                          ? Icons.fullscreen_exit
-                          : Icons.fullscreen,
-                      color: AppColors.textHeadline,
-                      size: 20.sp,
-                    ),
-                  ),
                 ),
+              SizedBox(height: 8.h),
+              _mapActionButton(
+                icon: Icons.center_focus_strong,
+                onTap: () => controller.fitRouteBounds(),
               ),
-            ),
+            ],
           ),
+        ),
         if (isFullscreen)
           Positioned(
             left: 16.w,
@@ -406,6 +394,32 @@ class TaskLiveView extends GetView<TaskLiveController> {
             ),
           ),
       ],
+    );
+  }
+
+  Widget _mapActionButton({
+    required IconData icon,
+    required VoidCallback onTap,
+  }) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        shape: BoxShape.circle,
+        boxShadow: const [
+          BoxShadow(color: Colors.black26, blurRadius: 4, offset: Offset(0, 2)),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          customBorder: const CircleBorder(),
+          child: Padding(
+            padding: EdgeInsets.all(10.w),
+            child: Icon(icon, color: AppColors.textHeadline, size: 20.sp),
+          ),
+        ),
+      ),
     );
   }
 
@@ -479,6 +493,157 @@ class TaskLiveView extends GetView<TaskLiveController> {
             style: TextStyle(color: AppColors.textPrimary, fontSize: 12.sp),
           ),
         ],
+      ),
+    );
+  }
+
+  void _showDropoffOtpDialog() {
+    final otpController = TextEditingController();
+    Get.dialog(
+      Dialog(
+        backgroundColor: const Color(0xFF1E1E1E),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16.r),
+        ),
+        child: Padding(
+          padding: EdgeInsets.all(20.w),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    width: 36.w,
+                    height: 36.w,
+                    decoration: BoxDecoration(
+                      color: AppColors.accent.withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(8.r),
+                    ),
+                    child: Icon(
+                      Icons.vpn_key_outlined,
+                      color: AppColors.accent,
+                      size: 20.sp,
+                    ),
+                  ),
+                  SizedBox(width: 12.w),
+                  Expanded(
+                    child: Text(
+                      'Enter Delivery OTP',
+                      style: TextStyle(
+                        color: AppColors.textHeadline,
+                        fontSize: 16.sp,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              SizedBox(height: 12.h),
+              Text(
+                'Please ask the mover for the 4-digit OTP PIN to complete and verify the delivery.',
+                style: TextStyle(
+                  color: AppColors.textSecondary,
+                  fontSize: 12.sp,
+                  height: 1.4,
+                ),
+              ),
+              SizedBox(height: 18.h),
+              TextField(
+                controller: otpController,
+                keyboardType: TextInputType.number,
+                maxLength: 4,
+                textAlign: TextAlign.center,
+                autofocus: true,
+                style: TextStyle(
+                  color: AppColors.textHeadline,
+                  fontSize: 22.sp,
+                  letterSpacing: 14.w,
+                  fontWeight: FontWeight.bold,
+                ),
+                decoration: InputDecoration(
+                  counterText: '',
+                  hintText: '••••',
+                  hintStyle: TextStyle(
+                    color: Colors.white24,
+                    letterSpacing: 14.w,
+                    fontSize: 22.sp,
+                  ),
+                  filled: true,
+                  fillColor: Colors.white.withValues(alpha: 0.05),
+                  contentPadding: EdgeInsets.symmetric(vertical: 14.h),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10.r),
+                    borderSide: const BorderSide(color: Colors.white24),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10.r),
+                    borderSide: BorderSide(color: AppColors.accent, width: 1.5),
+                  ),
+                ),
+              ),
+              SizedBox(height: 20.h),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: () => Get.back(),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: AppColors.textSecondary,
+                        side: const BorderSide(color: Colors.white24),
+                        padding: EdgeInsets.symmetric(vertical: 11.h),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8.r),
+                        ),
+                      ),
+                      child: const Text('Cancel'),
+                    ),
+                  ),
+                  SizedBox(width: 10.w),
+                  Expanded(
+                    child: Obx(
+                      () => ElevatedButton(
+                        onPressed: controller.isSubmittingDropoff.value
+                            ? null
+                            : () {
+                                final pin = otpController.text.trim();
+                                if (pin.length < 4) {
+                                  Get.snackbar(
+                                    'Required',
+                                    'Please enter a 4-digit PIN',
+                                  );
+                                  return;
+                                }
+                                controller.confirmDropoffWithOtp(pin);
+                              },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.accent,
+                          foregroundColor: Colors.white,
+                          padding: EdgeInsets.symmetric(vertical: 11.h),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8.r),
+                          ),
+                        ),
+                        child: controller.isSubmittingDropoff.value
+                            ? SizedBox(
+                                width: 18.w,
+                                height: 18.w,
+                                child: const CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  valueColor: AlwaysStoppedAnimation<Color>(
+                                    Colors.white,
+                                  ),
+                                ),
+                              )
+                            : const Text('Verify & Finish'),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -557,9 +722,19 @@ class TaskLiveView extends GetView<TaskLiveController> {
                       ? (controller.isSubmittingPickup.value
                             ? null
                             : controller.confirmPickup)
-                      : (controller.isSubmittingDropoff.value
-                            ? null
-                            : controller.confirmDropoff),
+                      : () async {
+                          if (controller.dropoffPhotoPath.value.isEmpty) {
+                            Get.snackbar(
+                              'Required',
+                              'Take drop-off photo first',
+                            );
+                            return;
+                          }
+                          final sent = await controller.confirmDropoff();
+                          if (sent) {
+                            _showDropoffOtpDialog();
+                          }
+                        },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppColors.accent,
                     foregroundColor: Colors.white,

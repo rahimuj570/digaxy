@@ -10,11 +10,15 @@ class EarningsController extends GetxController {
   final today = 0.0.obs;
   final week = 0.0.obs;
   final month = 0.0.obs;
+  final year = 0.0.obs;
   final lifetime = 0.0.obs;
   final payoutsRequested = 0.0.obs;
   final pending = 0.0.obs;
   final lastPayoutDate = ''.obs;
   final paymentMethod = ''.obs;
+
+  final yearlyGrowth = <Map<String, dynamic>>[].obs;
+  final yearlyGrowthSummary = <String, dynamic>{}.obs;
 
   @override
   void onInit() {
@@ -40,11 +44,25 @@ class EarningsController extends GetxController {
       final commissionMap = response['commission'] is Map
           ? Map<String, dynamic>.from(response['commission'])
           : <String, dynamic>{};
+      final yearlyGrowthList = response['yearly_growth'] is List
+          ? List<Map<String, dynamic>>.from(
+              (response['yearly_growth'] as List).whereType<Map>().map(
+                    (e) => Map<String, dynamic>.from(e),
+                  ),
+            )
+          : <Map<String, dynamic>>[];
+      final yearlySummaryMap = response['yearly_growth_summary'] is Map
+          ? Map<String, dynamic>.from(response['yearly_growth_summary'])
+          : <String, dynamic>{};
 
       today.value = _toAmount(earningsMap['today']) ?? 0.0;
       week.value = _toAmount(earningsMap['this_week']) ?? 0.0;
       month.value = _toAmount(earningsMap['this_month']) ?? 0.0;
+      year.value = _toAmount(earningsMap['this_year']) ?? 0.0;
       lifetime.value = _toAmount(earningsMap['lifetime']) ?? 0.0;
+
+      yearlyGrowth.assignAll(yearlyGrowthList);
+      yearlyGrowthSummary.assignAll(yearlySummaryMap);
 
       payoutsRequested.value =
           _toAmount(commissionMap['total_payouts_requested']) ?? 0.0;

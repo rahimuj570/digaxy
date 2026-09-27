@@ -191,10 +191,15 @@ extension ParcelApi on ApiService {
   Future<Map<String, dynamic>> uploadDropoffProofImage({
     required int id,
     required String imagePath,
+    String action = 'verify_otp',
+    String? otp,
   }) async {
     return await patchMultipart(
       '/driver/parcels/$id/dropoff/',
-      fields: const {},
+      fields: {
+        'action': action,
+        if (otp != null && otp.isNotEmpty) 'otp': otp,
+      },
       files: {'images': imagePath},
     );
   }

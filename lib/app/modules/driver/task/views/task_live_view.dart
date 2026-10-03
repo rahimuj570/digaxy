@@ -228,19 +228,33 @@ class TaskLiveView extends GetView<TaskLiveController> {
                 SizedBox(height: 14.h),
                 _metaRow(),
                 SizedBox(height: 14.h),
-                _addressCard(
-                  title: 'Pickup Address',
-                  value: controller.pickupAddress.value.isEmpty
+                _locationContactCard(
+                  title: 'Pickup Details',
+                  icon: Icons.location_on,
+                  iconColor: AppColors.accent,
+                  address: controller.pickupAddress.value.isEmpty
                       ? 'Not available'
                       : controller.pickupAddress.value,
+                  contactName: controller.pickupContactName.value,
+                  contactPhone: controller.pickupContactPhone.value,
                 ),
                 SizedBox(height: 10.h),
-                _addressCard(
-                  title: 'Drop-off Address',
-                  value: controller.dropoffAddress.value.isEmpty
+                _locationContactCard(
+                  title: 'Drop-off Details',
+                  icon: Icons.location_on_outlined,
+                  iconColor: Colors.orangeAccent,
+                  address: controller.dropoffAddress.value.isEmpty
                       ? 'Not available'
                       : controller.dropoffAddress.value,
+                  contactName: controller.dropContactName.value,
+                  contactPhone: controller.dropContactPhone.value,
                 ),
+                if (controller.parcelType.value.isNotEmpty ||
+                    controller.vehicleType.value.isNotEmpty ||
+                    controller.price.value.isNotEmpty) ...[
+                  SizedBox(height: 10.h),
+                  _parcelSummaryCard(),
+                ],
                 SizedBox(height: 14.h),
                 _stageCard(onPickupStage),
               ],
@@ -468,7 +482,115 @@ class TaskLiveView extends GetView<TaskLiveController> {
     );
   }
 
-  Widget _addressCard({required String title, required String value}) {
+  Widget _locationContactCard({
+    required String title,
+    required IconData icon,
+    required Color iconColor,
+    required String address,
+    required String contactName,
+    required String contactPhone,
+  }) {
+    final hasPhone = contactPhone.trim().isNotEmpty;
+    final hasContact = contactName.trim().isNotEmpty;
+
+    return Container(
+      width: double.infinity,
+      padding: EdgeInsets.all(12.w),
+      decoration: BoxDecoration(
+        color: Colors.white10,
+        borderRadius: BorderRadius.circular(10.r),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(icon, color: iconColor, size: 16.sp),
+              SizedBox(width: 6.w),
+              Expanded(
+                child: Text(
+                  title,
+                  style: TextStyle(
+                    color: AppColors.textHeadline,
+                    fontWeight: FontWeight.w600,
+                    fontSize: 12.sp,
+                  ),
+                ),
+              ),
+              if (hasPhone)
+                InkWell(
+                  onTap: () => controller.makePhoneCall(contactPhone),
+                  borderRadius: BorderRadius.circular(20.r),
+                  child: Container(
+                    padding: EdgeInsets.symmetric(
+                      horizontal: 8.w,
+                      vertical: 4.h,
+                    ),
+                    decoration: BoxDecoration(
+                      color: AppColors.accent.withValues(alpha: 0.2),
+                      borderRadius: BorderRadius.circular(20.r),
+                      border: Border.all(
+                        color: AppColors.accent.withValues(alpha: 0.5),
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.phone,
+                          color: AppColors.accent,
+                          size: 13.sp,
+                        ),
+                        SizedBox(width: 4.w),
+                        Text(
+                          'Call',
+                          style: TextStyle(
+                            color: AppColors.accent,
+                            fontSize: 11.sp,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+            ],
+          ),
+          SizedBox(height: 6.h),
+          Text(
+            address,
+            style: TextStyle(color: AppColors.textPrimary, fontSize: 12.sp),
+          ),
+          if (hasContact || hasPhone) ...[
+            SizedBox(height: 8.h),
+            Row(
+              children: [
+                Icon(
+                  Icons.person_outline,
+                  color: AppColors.textSecondary,
+                  size: 14.sp,
+                ),
+                SizedBox(width: 6.w),
+                Expanded(
+                  child: Text(
+                    hasContact && hasPhone
+                        ? '$contactName  •  $contactPhone'
+                        : (hasContact ? contactName : contactPhone),
+                    style: TextStyle(
+                      color: AppColors.textSecondary,
+                      fontSize: 11.sp,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _parcelSummaryCard() {
     return Container(
       width: double.infinity,
       padding: EdgeInsets.all(12.w),
@@ -480,19 +602,45 @@ class TaskLiveView extends GetView<TaskLiveController> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            title,
+            'Parcel Information',
             style: TextStyle(
               color: AppColors.textHeadline,
               fontWeight: FontWeight.w600,
               fontSize: 12.sp,
             ),
           ),
-          SizedBox(height: 6.h),
-          Text(
-            value,
-            style: TextStyle(color: AppColors.textPrimary, fontSize: 12.sp),
+          SizedBox(height: 8.h),
+          Wrap(
+            spacing: 8.w,
+            runSpacing: 6.h,
+            children: [
+              if (controller.parcelType.value.isNotEmpty)
+                _chipItem('Type: ${controller.parcelType.value}'),
+              if (controller.vehicleType.value.isNotEmpty)
+                _chipItem('Vehicle: ${controller.vehicleType.value}'),
+              if (controller.price.value.isNotEmpty)
+                _chipItem('Fare: \$${controller.price.value}'),
+              if (controller.pickupDate.value.isNotEmpty)
+                _chipItem('Date: ${controller.pickupDate.value}'),
+              if (controller.pickupTime.value.isNotEmpty)
+                _chipItem('Time: ${controller.pickupTime.value}'),
+            ],
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _chipItem(String text) {
+    return Container(
+      padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 4.h),
+      decoration: BoxDecoration(
+        color: Colors.white12,
+        borderRadius: BorderRadius.circular(6.r),
+      ),
+      child: Text(
+        text,
+        style: TextStyle(color: AppColors.textPrimary, fontSize: 11.sp),
       ),
     );
   }

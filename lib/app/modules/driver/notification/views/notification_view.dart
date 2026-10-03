@@ -1,8 +1,5 @@
 import 'package:digaxy/app/modules/driver/notification/widgets/notification_card.dart';
 import 'package:digaxy/app/routes/app_pages.dart';
-import 'package:digaxy/services/live_location/driver_location_update_socket_service.dart';
-import 'package:digaxy/services/live_location/parcel_live_location_socket_service.dart';
-import 'package:digaxy/services/notifications/notification_socket_service.dart';
 import 'package:digaxy/shared/app_colors.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -13,132 +10,123 @@ import '../controllers/notification_controller.dart';
 class NotificationView extends GetView<NotificationController> {
   const NotificationView({super.key});
 
-  List<Map<String, String>> _mergeNotifications(
-    List<Map<String, String>> recent,
-    List<Map<String, String>> previous,
-  ) {
-    final merged = <Map<String, String>>[];
-    final seen = <String>{};
+  void _openDetails(Map<String, dynamic> item) {
+    final parcelId = (item['parcel_id'] ?? '').toString().trim();
+    final parcelNumericId = (item['parcel_numeric_id'] ?? '').toString().trim();
 
-    void push(Map<String, String> item) {
-      final key =
-          '${item['parcel_numeric_id'] ?? ''}|${item['parcel_id'] ?? ''}|${item['title'] ?? ''}|${item['subtitle'] ?? ''}|${item['time'] ?? ''}';
-      if (seen.add(key)) {
-        merged.add(item);
-      }
-    }
-
-    for (final item in recent) {
-      push(item);
-    }
-    for (final item in previous) {
-      push(item);
-    }
-
-    return merged;
-  }
-
-  String _statusOf<T extends GetxService>() {
-    if (!Get.isRegistered<T>()) return 'not_initialized';
-    final service = Get.find<T>();
-
-    if (service is NotificationSocketService) {
-      return service.connectionStatus.value;
-    }
-    if (service is DriverLocationUpdateSocketService) {
-      return service.connectionStatus.value;
-    }
-    if (service is ParcelLiveLocationSocketService) {
-      return service.connectionStatus.value;
-    }
-    return 'unknown';
-  }
-
-  Color _statusColor(String status) {
-    switch (status) {
-      case 'connected':
-        return Colors.greenAccent;
-      case 'connecting':
-      case 'reconnecting':
-        return Colors.amberAccent;
-      case 'error':
-        return Colors.redAccent;
-      default:
-        return Colors.white54;
-    }
-  }
-
-  Widget _socketStatusCard() {
-    final notif = _statusOf<NotificationSocketService>();
-    final driver = _statusOf<DriverLocationUpdateSocketService>();
-    final parcel = _statusOf<ParcelLiveLocationSocketService>();
-
-    Widget row(String label, String value) {
-      return Padding(
-        padding: const EdgeInsets.symmetric(vertical: 2),
-        child: Row(
-          children: [
-            SizedBox(
-              width: 110,
-              child: Text(
-                label,
+    if (parcelId.isNotEmpty || parcelNumericId.isNotEmpty) {
+      Get.toNamed(
+        Routes.DRIVER_TASK_DETAIL,
+        arguments: {
+          if (parcelId.isNotEmpty) 'parcel_id': parcelId,
+          if (parcelId.isNotEmpty) 'parcelId': parcelId,
+          if (parcelNumericId.isNotEmpty) 'parcelNumericId': parcelNumericId,
+          if (parcelNumericId.isNotEmpty) 'parcel_numeric_id': parcelNumericId,
+        },
+      );
+    } else {
+      Get.bottomSheet(
+        Container(
+          padding: EdgeInsets.all(20.w),
+          decoration: BoxDecoration(
+            color: const Color(0xFF1E1E1E),
+            borderRadius: BorderRadius.vertical(top: Radius.circular(20.r)),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                item['title'] ?? 'Notification',
                 style: TextStyle(
-                  color: AppColors.textSecondary,
-                  fontSize: 11.sp,
+                  color: AppColors.textHeadline,
+                  fontSize: 16.sp,
+                  fontWeight: FontWeight.bold,
                 ),
               ),
-            ),
-            Text(
-              value,
-              style: TextStyle(
-                color: _statusColor(value),
-                fontSize: 11.sp,
-                fontWeight: FontWeight.w700,
+              SizedBox(height: 10.h),
+              Text(
+                item['subtitle'] ?? item['message'] ?? '',
+                style: TextStyle(
+                  color: AppColors.textPrimary,
+                  fontSize: 13.sp,
+                ),
               ),
-            ),
-          ],
+              if ((item['time'] ?? '').toString().isNotEmpty) ...[
+                SizedBox(height: 12.h),
+                Text(
+                  item['time'] ?? '',
+                  style: TextStyle(
+                    color: AppColors.textSecondary,
+                    fontSize: 11.sp,
+                  ),
+                ),
+              ],
+              SizedBox(height: 16.h),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: () => Get.back(),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.accent,
+                    foregroundColor: Colors.white,
+                  ),
+                  child: const Text('Close'),
+                ),
+              ),
+            ],
+          ),
         ),
       );
     }
-
-    return Container(
-      width: double.infinity,
-      margin: EdgeInsets.only(bottom: 10.h),
-      padding: EdgeInsets.all(10.w),
-      decoration: BoxDecoration(
-        color: Colors.white10,
-        borderRadius: BorderRadius.circular(10.r),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'WebSocket Debug',
-            style: TextStyle(
-              color: AppColors.textPrimary,
-              fontWeight: FontWeight.w600,
-              fontSize: 12.sp,
-            ),
-          ),
-          SizedBox(height: 6.h),
-          row('Notifications', notif),
-          row('Driver Location', driver),
-          row('Parcel Live', parcel),
-        ],
-      ),
-    );
   }
 
-  void _openDetails(Map<String, String> item) {
-    final parcelId = (item['parcel_id'] ?? '').trim();
-    final parcelNumericId = (item['parcel_numeric_id'] ?? '').trim();
-
-    Get.toNamed(
-      Routes.DRIVER_TASK_DETAIL,
-      arguments: {
-        if (parcelId.isNotEmpty) 'parcel_id': parcelId,
-        if (parcelNumericId.isNotEmpty) 'parcelNumericId': parcelNumericId,
-      },
+  Widget _buildEmptyState() {
+    return SingleChildScrollView(
+      physics: const AlwaysScrollableScrollPhysics(
+        parent: BouncingScrollPhysics(),
+      ),
+      child: SizedBox(
+        height: 0.7.sh,
+        child: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Container(
+                width: 68.w,
+                height: 68.w,
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.05),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  Icons.notifications_none_rounded,
+                  size: 34.sp,
+                  color: AppColors.accent.withValues(alpha: 0.7),
+                ),
+              ),
+              SizedBox(height: 16.h),
+              Text(
+                'No notifications yet',
+                style: TextStyle(
+                  color: AppColors.textPrimary,
+                  fontSize: 15.sp,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              SizedBox(height: 6.h),
+              Text(
+                'You will see incoming delivery and task updates here.',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: AppColors.textSecondary.withValues(alpha: 0.7),
+                  fontSize: 12.sp,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 
@@ -147,20 +135,21 @@ class NotificationView extends GetView<NotificationController> {
     return Scaffold(
       backgroundColor: Colors.black,
       body: SafeArea(
-        child: Padding(
-          padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Header
+            Padding(
+              padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
+              child: Row(
                 children: [
                   IconButton(
                     onPressed: () => Navigator.of(context).maybePop(),
-                    icon: Icon(Icons.arrow_back, color: AppColors.accent),
+                    icon: const Icon(Icons.arrow_back, color: AppColors.accent),
                   ),
                   SizedBox(width: 8.w),
                   Text(
-                    'Notification',
+                    'Notifications',
                     style: TextStyle(
                       color: AppColors.accent,
                       fontSize: 18.sp,
@@ -169,42 +158,53 @@ class NotificationView extends GetView<NotificationController> {
                   ),
                 ],
               ),
-              SizedBox(height: 12.h),
-              Expanded(
-                child: Obx(() {
-                  final recent = controller.recentNotifications;
-                  final previous = controller.notifications;
-                  final all = _mergeNotifications(recent, previous);
-
-                  return SingleChildScrollView(
-                    physics: BouncingScrollPhysics(),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        _socketStatusCard(),
-                        if (all.isEmpty)
-                          NotificationCard(
-                            title: 'No notifications',
-                            subtitle: 'You are all caught up.',
-                            time: '',
-                          )
-                        else
-                          ...all.map(
-                            (item) => NotificationCard(
-                              title: item['title'] ?? 'Notification',
-                              subtitle: item['subtitle'] ?? '',
-                              time: item['time'] ?? '',
-                              onTap: () => _openDetails(item),
-                            ),
-                          ),
-                        SizedBox(height: 24.h),
-                      ],
-                    ),
+            ),
+            // Content
+            Expanded(
+              child: Obx(() {
+                if (controller.isLoading.value && controller.notifications.isEmpty) {
+                  return const Center(
+                    child: CircularProgressIndicator(color: AppColors.accent),
                   );
-                }),
-              ),
-            ],
-          ),
+                }
+
+                final list = controller.notifications;
+
+                if (list.isEmpty) {
+                  return RefreshIndicator(
+                    color: AppColors.accent,
+                    backgroundColor: Colors.grey[900],
+                    onRefresh: controller.refreshNotifications,
+                    child: _buildEmptyState(),
+                  );
+                }
+
+                return RefreshIndicator(
+                  color: AppColors.accent,
+                  backgroundColor: Colors.grey[900],
+                  onRefresh: controller.refreshNotifications,
+                  child: ListView.builder(
+                    padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.h),
+                    physics: const AlwaysScrollableScrollPhysics(
+                      parent: BouncingScrollPhysics(),
+                    ),
+                    itemCount: list.length,
+                    itemBuilder: (context, index) {
+                      final item = list[index];
+                      return NotificationCard(
+                        title: item['title'] ?? 'Notification',
+                        subtitle: item['subtitle'] ?? item['message'] ?? '',
+                        time: item['time'] ?? '',
+                        parcelId: (item['parcel_id'] ?? item['parcel_numeric_id'] ?? '').toString(),
+                        isRead: item['is_read'] == true,
+                        onTap: () => _openDetails(item),
+                      );
+                    },
+                  ),
+                );
+              }),
+            ),
+          ],
         ),
       ),
     );

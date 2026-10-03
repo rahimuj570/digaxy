@@ -2,15 +2,18 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:math' as math;
 
-import 'package:digaxy/shared/api_keys.dart';
+import 'package:digaxy/app/routes/app_pages.dart';
 import 'package:digaxy/services/api/api_service.dart';
 import 'package:digaxy/services/live_location/driver_location_update_socket_service.dart';
 import 'package:digaxy/services/live_location/parcel_live_location_socket_service.dart';
+import 'package:digaxy/shared/api_keys.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:get/get.dart';
+import 'package:get_storage/get_storage.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:http/http.dart' as http;
 import 'package:image_picker/image_picker.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class TaskLiveController extends GetxController {
   final title = 'Live Movement'.obs;
@@ -19,7 +22,6 @@ class TaskLiveController extends GetxController {
   final distance = '--'.obs;
   final eta = '--'.obs;
   final customerName = ''.obs;
-  final customerTax = 'TAX 2345'.obs;
 
   GoogleMapController? mapController;
 
@@ -27,6 +29,19 @@ class TaskLiveController extends GetxController {
   final dropoffAddress = ''.obs;
   final parcelId = ''.obs;
   final parcelNumericId = RxnInt();
+
+  final pickupContactName = ''.obs;
+  final pickupContactPhone = ''.obs;
+  final dropContactName = ''.obs;
+  final dropContactPhone = ''.obs;
+  final parcelStatus = ''.obs;
+  final parcelType = ''.obs;
+  final vehicleType = ''.obs;
+  final price = ''.obs;
+  final pickupDate = ''.obs;
+  final pickupTime = ''.obs;
+  final isLoadingDetails = false.obs;
+  final detailsError = ''.obs;
 
   final pickupLat = RxnDouble();
   final pickupLng = RxnDouble();
@@ -83,24 +98,42 @@ class TaskLiveController extends GetxController {
       if (args['dropoff'] != null) dropoffAddress.value = '${args['dropoff']}';
       if (args['customerName'] != null) {
         customerName.value = '${args['customerName']}';
+        pickupContactName.value = '${args['customerName']}';
       }
+      if (args['pickupContactName'] != null) {
+        pickupContactName.value = '${args['pickupContactName']}';
+      }
+      if (args['pickupContactPhone'] != null) {
+        pickupContactPhone.value = '${args['pickupContactPhone']}';
+      }
+      if (args['dropContactName'] != null) {
+        dropContactName.value = '${args['dropContactName']}';
+      }
+      if (args['dropContactPhone'] != null) {
+        dropContactPhone.value = '${args['dropContactPhone']}';
+      }
+      if (args['deliveryStatus'] != null) {
+        parcelStatus.value = '${args['deliveryStatus']}';
+      }
+
       final parsedId =
-          (args['parcel_id'] ?? args['parcelId'] ?? args['jobId'] ?? '')
+          (args['parcel_id'] ?? args['parcelId'] ?? args['jobId'] ?? args['id'] ?? '')
               .toString()
               .trim();
       if (parsedId.isNotEmpty) {
         parcelId.value = parsedId;
       }
 
-      final numericId = int.tryParse((args['parcelId'] ?? '').toString());
+      final numericId = _resolveParcelNumericId(args);
       if (numericId != null) {
         parcelNumericId.value = numericId;
+        _loadParcelDetails(numericId);
       }
 
-      pickupLat.value = _toDouble(args['pickupLat']);
-      pickupLng.value = _toDouble(args['pickupLng']);
-      dropLat.value = _toDouble(args['dropLat']);
-      dropLng.value = _toDouble(args['dropLng']);
+      if (pickupLat.value == null) pickupLat.value = _toDouble(args['pickupLat']);
+      if (pickupLng.value == null) pickupLng.value = _toDouble(args['pickupLng']);
+      if (dropLat.value == null) dropLat.value = _toDouble(args['dropLat']);
+      if (dropLng.value == null) dropLng.value = _toDouble(args['dropLng']);
 
       final pickedFlag = args['isPickedUp'];
       if (pickedFlag is bool) {
@@ -127,6 +160,111 @@ class TaskLiveController extends GetxController {
 
     _connectSockets();
     _startLocationTracking();
+  }
+
+  int? _resolveParcelNumericId(Map args) {
+    final candidates = [
+      args['parcelNumericId'],
+      args['parcel_numeric_id'],
+      args['parcelId'],
+      args['parcel_id'],
+      args['id'],
+      args['jobId'],
+    ];
+
+    for (final value in candidates) {
+      final parsed = int.tryParse(value?.toString().trim() ?? '');
+      if (parsed != null) return parsed;
+    }
+    return null;
+  }
+
+  Future<void> _loadParcelDetails(int id) async {
+    try {
+      isLoadingDetails.value = true;
+      detailsError.value = '';
+      final data = await _api.fetchParcelDetails(id: id);
+
+      final pId = (data['parcel_id'] ?? data['id'] ?? id).toString();
+      if (pId.isNotEmpty) {
+        parcelId.value = pId;
+      }
+      title.value = 'Live - Parcel #$id';
+
+      if (pickupAddress.value.isEmpty || pickupAddress.value == 'N/A') {
+        pickupAddress.value = (data['pickup_address'] ?? '').toString();
+      }
+      if (dropoffAddress.value.isEmpty || dropoffAddress.value == 'N/A') {
+        dropoffAddress.value = (data['drop_address'] ?? '').toString();
+      }
+
+      if (pickupLat.value == null) pickupLat.value = _toDouble(data['ping']);
+      if (pickupLng.value == null) pickupLng.value = _toDouble(data['pong']);
+      if (dropLat.value == null) dropLat.value = _toDouble(data['ding']);
+      if (dropLng.value == null) dropLng.value = _toDouble(data['dong']);
+
+      if ((data['pickup_user_name'] ?? '').toString().isNotEmpty) {
+        pickupContactName.value = (data['pickup_user_name']).toString();
+        customerName.value = pickupContactName.value;
+      }
+      if ((data['phone_number'] ?? '').toString().isNotEmpty) {
+        pickupContactPhone.value = (data['phone_number']).toString();
+      }
+      if ((data['drop_user_name'] ?? '').toString().isNotEmpty) {
+        dropContactName.value = (data['drop_user_name']).toString();
+      }
+      if ((data['drop_number'] ?? '').toString().isNotEmpty) {
+        dropContactPhone.value = (data['drop_number']).toString();
+      }
+
+      final st = (data['delivery_status'] ?? '').toString();
+      if (st.isNotEmpty) {
+        parcelStatus.value = st;
+        final statusLower =
+            st.toLowerCase().replaceAll('-', '_').replaceAll(' ', '_');
+        if (statusLower == 'on_the_way' ||
+            statusLower == 'onway' ||
+            statusLower == 'picked_up' ||
+            statusLower == 'pickup_done') {
+          isPickedUp.value = true;
+        }
+      }
+
+      parcelType.value = (data['percel_type'] ?? '').toString();
+      vehicleType.value = (data['vehicle_type'] ?? '').toString();
+      price.value = (data['price'] ?? '').toString();
+      pickupDate.value = (data['pickup_date'] ?? '').toString();
+      pickupTime.value = (data['pickup_time'] ?? '').toString();
+
+      from.value = pickupAddress.value;
+      to.value = dropoffAddress.value;
+
+      _updateDistanceAndHint();
+      _refreshRoute(force: true);
+      _connectSockets();
+    } catch (e) {
+      detailsError.value = 'Failed to load details: $e';
+    } finally {
+      isLoadingDetails.value = false;
+    }
+  }
+
+  Future<void> makePhoneCall(String phoneNumber) async {
+    final clean = phoneNumber.replaceAll(RegExp(r'[^0-9+]'), '');
+    if (clean.isEmpty) {
+      Get.snackbar('Notice', 'No phone number available');
+      return;
+    }
+    final uri = Uri.parse('tel:$clean');
+    try {
+      if (await canLaunchUrl(uri)) {
+        await launchUrl(uri);
+      } else {
+        Get.snackbar('Notice', 'Could not open phone dialer for $phoneNumber');
+      }
+    } catch (_) {
+      Get.snackbar('Notice', 'Could not make call to $phoneNumber');
+    }
   }
 
   void _connectSockets() {
@@ -381,7 +519,12 @@ class TaskLiveController extends GetxController {
       }
       Get.snackbar('Success', 'Delivery completed successfully');
       await Future.delayed(const Duration(milliseconds: 900));
-      Get.offAllNamed('/driver/home');
+      final role = (GetStorage().read('user_role') as String?)?.toLowerCase();
+      if (role == 'helper') {
+        Get.offAllNamed(Routes.HELPER_HOME);
+      } else {
+        Get.offAllNamed(Routes.DRIVER_HOME);
+      }
       return true;
     } catch (e) {
       Get.snackbar('Error', e.toString().replaceAll('Exception: ', ''));

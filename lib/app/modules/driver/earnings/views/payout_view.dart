@@ -83,21 +83,21 @@ class PayoutView extends GetView<PayoutController> {
                   ),
                 ),
               ),
-              Obx(
-                () => RadioListTile<String>(
-                  value: 'bkash',
-                  activeColor: AppColors.accent,
-                  dense: true,
-                  contentPadding: EdgeInsets.zero,
-                  controlAffinity: ListTileControlAffinity.leading,
-                  groupValue: controller.selectedMethod.value,
-                  onChanged: (v) => controller.selectMethod(v ?? 'bkash'),
-                  title: Text(
-                    'Bkash',
-                    style: TextStyle(color: AppColors.textPrimary),
-                  ),
-                ),
-              ),
+              // Obx(
+              //   () => RadioListTile<String>(
+              //     value: 'bkash',
+              //     activeColor: AppColors.accent,
+              //     dense: true,
+              //     contentPadding: EdgeInsets.zero,
+              //     controlAffinity: ListTileControlAffinity.leading,
+              //     groupValue: controller.selectedMethod.value,
+              //     onChanged: (v) => controller.selectMethod(v ?? 'bkash'),
+              //     title: Text(
+              //       'Bkash',
+              //       style: TextStyle(color: AppColors.textPrimary),
+              //     ),
+              //   ),
+              // ),
               SizedBox(height: 14.h),
               Text(
                 'Fee',

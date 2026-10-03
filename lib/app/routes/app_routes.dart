@@ -73,6 +73,9 @@ abstract class Routes {
   static const HELPER_EARNINGS = _Paths.HELPER_EARNINGS;
   static const DRIVER_DELIVERY_DETAIL = _Paths.DRIVER_DELIVERY_DETAIL;
   static const HELPER_SETTINGS_HELP_ACK = _Paths.HELPER_SETTINGS_HELP_ACK;
+  static const HELPER_TASK_DETAIL = _Paths.HELPER_TASK_DETAIL;
+  static const HELPER_TASK_ACTIVE = _Paths.HELPER_TASK_ACTIVE;
+  static const HELPER_TASK_LIVE = _Paths.HELPER_TASK_LIVE;
 }
 
 abstract class _Paths {
@@ -147,4 +150,7 @@ abstract class _Paths {
   static const HELPER_PRIORITY = '/helper/priority';
   static const HELPER_SETTINGS_HELP_ACK = '/helper/settings/help-ack';
   static const DRIVER_DELIVERY_DETAIL = '/driver/delivery/detail';
+  static const HELPER_TASK_DETAIL = '/helper/task/detail';
+  static const HELPER_TASK_ACTIVE = '/helper/task/active';
+  static const HELPER_TASK_LIVE = '/helper/task/live';
 }

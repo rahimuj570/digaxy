@@ -20,26 +20,33 @@ class HelperProfileView extends GetView<HelperProfileController> {
       color: Colors.black,
       padding: EdgeInsets.symmetric(horizontal: 20.w, vertical: 20.h),
       child: SafeArea(
-        child: SingleChildScrollView(
-          physics: const BouncingScrollPhysics(),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  const SizedBox(width: 1),
-                  Material(
-                    color: Colors.transparent,
-                    child: InkWell(
-                      borderRadius: BorderRadius.circular(6.r),
-                      splashColor: AppColors.accent.withOpacity(0.12),
-                      onTap: () async {
-                        await Future.microtask(
-                          () => Get.toNamed(Routes.HELPER_PROFILE_EDIT),
-                        );
-                      },
-                      child: Padding(
+        child: RefreshIndicator(
+          color: AppColors.accent,
+          backgroundColor: Colors.grey[900],
+          onRefresh: () => controller.fetchProfile(),
+          child: SingleChildScrollView(
+            physics: const AlwaysScrollableScrollPhysics(
+              parent: BouncingScrollPhysics(),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const SizedBox(width: 1),
+                    Material(
+                      color: Colors.transparent,
+                      child: InkWell(
+                        borderRadius: BorderRadius.circular(6.r),
+                        splashColor:
+                            AppColors.accent.withValues(alpha: 0.12),
+                        onTap: () async {
+                          await Future.microtask(
+                            () => Get.toNamed(Routes.HELPER_PROFILE_EDIT),
+                          );
+                        },
+                        child: Padding(
                         padding: EdgeInsets.symmetric(
                           horizontal: 8.w,
                           vertical: 6.h,
@@ -189,8 +196,9 @@ class HelperProfileView extends GetView<HelperProfileController> {
           ),
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 
   Widget _infoRow(IconData icon, String text) {
     return Row(

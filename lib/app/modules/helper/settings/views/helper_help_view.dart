@@ -25,9 +25,10 @@ class HelperHelpView extends GetView<HelperSettingsController> {
         ),
       ),
       body: SafeArea(
-        child: Padding(
+        child: SingleChildScrollView(
           padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
           child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               SizedBox(height: 12.h),
               _label('Email'),
@@ -50,14 +51,17 @@ class HelperHelpView extends GetView<HelperSettingsController> {
                   );
                 },
               ),
-              SizedBox(height: 12.h),
+              SizedBox(height: 16.h),
               _label('Describe Your Problem'),
               SizedBox(height: 8.h),
               _multilineField(controller.supportMessage),
-              SizedBox(height: 20.h),
-              PrimaryButton(
-                label: 'Send',
-                onPressed: () => controller.sendSupport(),
+              SizedBox(height: 24.h),
+              Obx(
+                () => PrimaryButton(
+                  label: 'Send',
+                  loading: controller.isSendingSupport.value,
+                  onPressed: () => controller.sendSupport(),
+                ),
               ),
             ],
           ),
@@ -68,7 +72,14 @@ class HelperHelpView extends GetView<HelperSettingsController> {
 
   Widget _label(String t) => Align(
     alignment: Alignment.centerLeft,
-    child: Text(t, style: TextStyle(color: AppColors.textSecondary)),
+    child: Text(
+      t,
+      style: TextStyle(
+        color: AppColors.textSecondary,
+        fontSize: 13.sp,
+        fontWeight: FontWeight.w500,
+      ),
+    ),
   );
 
   Widget _field(
@@ -110,15 +121,20 @@ class HelperHelpView extends GetView<HelperSettingsController> {
       style: TextStyle(color: AppColors.textPrimary),
       decoration: InputDecoration(
         hintText: 'Describe Your Problem',
+        hintStyle: TextStyle(color: AppColors.textSecondary.withValues(alpha: 0.5)),
         filled: true,
         fillColor: Colors.transparent,
         contentPadding: EdgeInsets.all(12.h),
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(6.r),
-          borderSide: BorderSide(color: Colors.white12),
+          borderRadius: BorderRadius.circular(8.r),
+          borderSide: BorderSide(color: Colors.white24),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(8.r),
+          borderSide: BorderSide(color: Colors.white24),
         ),
         focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(6.r),
+          borderRadius: BorderRadius.circular(8.r),
           borderSide: BorderSide(color: AppColors.textHeadline),
         ),
       ),

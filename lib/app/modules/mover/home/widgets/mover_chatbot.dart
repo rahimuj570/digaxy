@@ -76,16 +76,18 @@ class _MoverChatbotState extends State<MoverChatbot>
 
     final minTop = insets.top + _edgePadding;
     final maxTop = size.height - insets.bottom - _fabSize - _edgePadding;
+    final safeMaxTop = maxTop < minTop ? minTop : maxTop;
 
-    _fabTop = _fabTop!.clamp(minTop, maxTop);
+    _fabTop = _fabTop!.clamp(minTop, safeMaxTop);
   }
 
   void _onDragUpdate(DragUpdateDetails details, Size size, EdgeInsets insets) {
     final minTop = insets.top + _edgePadding;
     final maxTop = size.height - insets.bottom - _fabSize - _edgePadding;
+    final safeMaxTop = maxTop < minTop ? minTop : maxTop;
 
     setState(() {
-      _fabTop = (_fabTop! + details.delta.dy).clamp(minTop, maxTop);
+      _fabTop = (_fabTop! + details.delta.dy).clamp(minTop, safeMaxTop);
     });
   }
 
@@ -145,9 +147,10 @@ class _MoverChatbotState extends State<MoverChatbot>
         });
       });
     } finally {
-      if (!mounted) return;
       _stopTypingAnimation();
-      setState(() => _sending = false);
+      if (mounted) {
+        setState(() => _sending = false);
+      }
     }
   }
 
@@ -166,16 +169,24 @@ class _MoverChatbotState extends State<MoverChatbot>
 
         final buttonLeft = size.width - _fabSize - _edgePadding;
         final buttonTop = _fabTop!;
-        final panelLeft = (size.width - panelWidth - _edgePadding).clamp(
-          _edgePadding,
-          size.width - panelWidth - _edgePadding,
-        );
+
+        final maxAllowedWidth = size.width - 2 * _edgePadding;
+        final effectivePanelWidth = maxAllowedWidth < 240.0
+            ? (size.width - 8.0).clamp(100.0, panelWidth)
+            : panelWidth.clamp(240.0, maxAllowedWidth);
+
+        final minPanelLeft = _edgePadding;
+        final maxPanelLeft = size.width - effectivePanelWidth - _edgePadding;
+        final safeMaxPanelLeft =
+            maxPanelLeft < minPanelLeft ? minPanelLeft : maxPanelLeft;
+        final panelLeft = (size.width - effectivePanelWidth - _edgePadding)
+            .clamp(minPanelLeft, safeMaxPanelLeft);
+
         final minPanelTop = insets.top + _edgePadding;
         final maxPanelTop =
             size.height - insets.bottom - panelHeight - _edgePadding;
-        final safeMaxPanelTop = maxPanelTop < minPanelTop
-            ? minPanelTop
-            : maxPanelTop;
+        final safeMaxPanelTop =
+            maxPanelTop < minPanelTop ? minPanelTop : maxPanelTop;
         final panelTop = (buttonTop - panelHeight - panelGap).clamp(
           minPanelTop,
           safeMaxPanelTop,
@@ -193,11 +204,11 @@ class _MoverChatbotState extends State<MoverChatbot>
                       parent: _anim,
                       curve: Curves.easeInOut,
                     ),
-                    axisAlignment: -1.0,
+                    alignment: Alignment.topCenter,
                     child: Material(
                       color: Colors.transparent,
                       child: Container(
-                        width: panelWidth,
+                        width: effectivePanelWidth,
                         height: panelHeight,
                         decoration: BoxDecoration(
                           color: Colors.black,
@@ -205,7 +216,7 @@ class _MoverChatbotState extends State<MoverChatbot>
                           border: Border.all(color: Colors.white10),
                           boxShadow: [
                             BoxShadow(
-                              color: Colors.black.withOpacity(0.6),
+                              color: Colors.black.withValues(alpha: 0.6),
                               blurRadius: 12,
                             ),
                           ],
@@ -432,7 +443,7 @@ class _MoverChatbotState extends State<MoverChatbot>
                         color: AppColors.accent,
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.black.withOpacity(0.5),
+                            color: Colors.black.withValues(alpha: 0.5),
                             blurRadius: 8,
                           ),
                         ],

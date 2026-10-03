@@ -13,6 +13,7 @@ part 'parcel_api.dart';
 part 'notifications_api.dart';
 part 'earnings_api.dart';
 part 'ai_support_api.dart';
+part 'support_api.dart';
 
 class ApiConfig {
   static const String baseUrl = String.fromEnvironment(
@@ -619,8 +620,7 @@ class ApiService {
       if (safeHeaders.containsKey('Authorization')) {
         final token = safeHeaders['Authorization']!;
         if (token.length > 20) {
-          safeHeaders['Authorization'] =
-              '${token.substring(0, 15)}... (truncated)';
+          safeHeaders['Authorization'] = token;
         }
       }
       buffer.writeln('│ Headers : $safeHeaders');

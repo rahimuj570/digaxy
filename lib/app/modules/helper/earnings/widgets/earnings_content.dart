@@ -12,10 +12,15 @@ class HelperEarningsContent extends GetView<HelperEarningsController> {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
+    return RefreshIndicator(
+      color: AppColors.accent,
+      backgroundColor: Colors.grey[900],
+      onRefresh: () => controller.loadEarnings(),
       child: SingleChildScrollView(
-        physics: BouncingScrollPhysics(),
+        physics: const AlwaysScrollableScrollPhysics(
+          parent: BouncingScrollPhysics(),
+        ),
+        padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [

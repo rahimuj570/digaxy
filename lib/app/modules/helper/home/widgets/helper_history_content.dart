@@ -73,22 +73,72 @@ class _HelperHistoryContentState extends State<HelperHistoryContent> {
     return <Map<String, dynamic>>[];
   }
 
+  Future<void> _handleRefresh() async {
+    setState(() {
+      _ongoingFuture = _fetchOngoingParcels();
+      _acceptedFuture = _fetchAcceptedParcels();
+      _completedFuture = _fetchCompletedParcels();
+    });
+    try {
+      await Future.wait([
+        _ongoingFuture,
+        _acceptedFuture,
+        _completedFuture,
+      ]);
+    } catch (_) {}
+  }
+
+  double? _toDouble(dynamic value) {
+    final text = value?.toString().trim() ?? '';
+    if (text.isEmpty) return null;
+    return double.tryParse(text);
+  }
+
   void _openHelperParcel(Map<String, dynamic> item, String sectionTitle) {
+    final normalizedSection = sectionTitle.toLowerCase();
+    final parcelNumericId = (item['id'] ?? '').toString().trim();
+    final parcelId = (item['parcel_id'] ?? '').toString().trim();
     final pickup = (item['pickup_address'] ?? '').toString();
     final dropoff = (item['drop_address'] ?? '').toString();
+    final deliveryStatus = (item['delivery_status'] ?? '').toString();
+
+    if (normalizedSection == 'ongoing' || normalizedSection == 'accepted') {
+      final pickupLat =
+          _toDouble(item['ping']) ?? _toDouble(item['pickup_lat']);
+      final pickupLng =
+          _toDouble(item['pong']) ?? _toDouble(item['pickup_lng']);
+      final dropLat = _toDouble(item['ding']) ?? _toDouble(item['drop_lat']);
+      final dropLng = _toDouble(item['dong']) ?? _toDouble(item['drop_lng']);
+
+      Get.toNamed(
+        Routes.HELPER_TASK_LIVE,
+        arguments: {
+          if (parcelNumericId.isNotEmpty) 'parcelId': parcelNumericId,
+          if (parcelId.isNotEmpty) 'parcel_id': parcelId,
+          if (parcelId.isNotEmpty) 'jobId': parcelId,
+          'isPickedUp': normalizedSection == 'ongoing' ||
+              deliveryStatus.toLowerCase().contains('onway') ||
+              deliveryStatus.toLowerCase().contains('on_the_way'),
+          'deliveryStatus':
+              deliveryStatus.isNotEmpty ? deliveryStatus : sectionTitle,
+          'pickup': pickup,
+          'dropoff': dropoff,
+          'pickupLat': ?pickupLat,
+          'pickupLng': ?pickupLng,
+          'dropLat': ?dropLat,
+          'dropLng': ?dropLng,
+          'customerName': (item['pickup_user_name'] ?? '').toString(),
+        },
+      );
+      return;
+    }
+
     final routeSummary = (pickup.isNotEmpty || dropoff.isNotEmpty)
         ? '$pickup → $dropoff'
         : '';
-
-    final deliveryStatus = (item['delivery_status'] ?? '').toString();
-    final normalizedSection = sectionTitle.toLowerCase();
     final status = deliveryStatus.isNotEmpty
         ? deliveryStatus
-        : (normalizedSection == 'completed'
-              ? 'Completed'
-              : normalizedSection == 'accepted'
-              ? 'Accepted'
-              : 'Ongoing');
+        : (normalizedSection == 'completed' ? 'Completed' : 'Delivery');
 
     final eta =
         'Est. ${(item['estimated_time_minutes'] ?? 'N/A').toString()} mins';
@@ -278,11 +328,17 @@ class _HelperHistoryContentState extends State<HelperHistoryContent> {
       );
     }
 
-    return SingleChildScrollView(
-      physics: const BouncingScrollPhysics(),
-      child: Padding(
-        padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
-        child: FutureBuilder<List<List<Map<String, dynamic>>>>(
+    return RefreshIndicator(
+      color: AppColors.accent,
+      backgroundColor: Colors.grey[900],
+      onRefresh: _handleRefresh,
+      child: SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(
+          parent: BouncingScrollPhysics(),
+        ),
+        child: Padding(
+          padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
+          child: FutureBuilder<List<List<Map<String, dynamic>>>>(
           future: Future.wait([
             _ongoingFuture,
             _acceptedFuture,
@@ -412,6 +468,7 @@ class _HelperHistoryContentState extends State<HelperHistoryContent> {
           },
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 }

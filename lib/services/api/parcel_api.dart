@@ -9,6 +9,7 @@ extension ParcelApi on ApiService {
   Future<Map<String, dynamic>> _getRoleAwareParcels({
     required String customerPath,
     required String driverPath,
+    String? helperPath,
     required int page,
     required int pageSize,
     bool? isPaid,
@@ -24,14 +25,34 @@ extension ParcelApi on ApiService {
 
     if (_enableLogging) {
       debugPrint(
-        '[ParcelAPI] role=$role hasToken=$hasToken customerPath=$customerPath driverPath=$driverPath',
+        '[ParcelAPI] role=$role hasToken=$hasToken customerPath=$customerPath driverPath=$driverPath helperPath=$helperPath',
       );
     }
 
-    if (role == 'driver') {
+    if (role == 'helper' && helperPath != null) {
       try {
         if (_enableLogging) {
-          debugPrint('[ParcelAPI] Trying driver endpoint first: $driverPath');
+          debugPrint('[ParcelAPI] Trying helper endpoint first: $helperPath');
+        }
+        return await getJson(helperPath, queryParameters: query);
+      } on ApiException catch (e) {
+        if (_enableLogging) {
+          debugPrint(
+            '[ParcelAPI] Helper endpoint failed (${e.statusCode}); trying driver fallback: $driverPath',
+          );
+        }
+        try {
+          return await getJson(driverPath, queryParameters: query);
+        } catch (_) {
+          return await getJson(customerPath, queryParameters: query);
+        }
+      }
+    }
+
+    if (role == 'driver' || role == 'helper') {
+      try {
+        if (_enableLogging) {
+          debugPrint('[ParcelAPI] Trying driver endpoint first for $role: $driverPath');
         }
         return await getJson(driverPath, queryParameters: query);
       } on ApiException catch (e) {
@@ -40,7 +61,6 @@ extension ParcelApi on ApiService {
             '[ParcelAPI] Driver endpoint failed (${e.statusCode}); trying customer fallback: $customerPath',
           );
         }
-        // Fallback for backends that expose customer-prefixed listing endpoints.
         return await getJson(customerPath, queryParameters: query);
       }
     }
@@ -51,7 +71,6 @@ extension ParcelApi on ApiService {
       }
       return await getJson(customerPath, queryParameters: query);
     } on ApiException catch (e) {
-      // If role in storage is stale/mismatched, this avoids hard failure.
       if (e.statusCode == 403) {
         if (_enableLogging) {
           debugPrint(
@@ -72,7 +91,7 @@ extension ParcelApi on ApiService {
     return await postJson('/customer/parcels/create/', body: parcelData);
   }
 
-  /// Get created parcels
+  /// Get pending parcels or helper available requests
   Future<Map<String, dynamic>> fetchPendingParcels({
     int page = 1,
     int pageSize = 20,
@@ -81,10 +100,33 @@ extension ParcelApi on ApiService {
     return await _getRoleAwareParcels(
       customerPath: '/customer/parcels/pending/',
       driverPath: '/driver/parcels/pending/',
+      helperPath: '/helper/parcels/available/',
       page: page,
       pageSize: pageSize,
       isPaid: isPaid,
     );
+  }
+
+  /// Helper Job Feed: GET /api/helper/parcels/available/
+  Future<Map<String, dynamic>> fetchAvailableHelperParcels({
+    int page = 1,
+    int pageSize = 20,
+  }) async {
+    try {
+      return await getJson(
+        '/helper/parcels/available/',
+        queryParameters: {'page': '$page', 'page_size': '$pageSize'},
+      );
+    } on ApiException catch (_) {
+      try {
+        return await getJson(
+          '/helper/requests/available/',
+          queryParameters: {'page': '$page', 'page_size': '$pageSize'},
+        );
+      } catch (_) {
+        return await fetchPendingParcels(page: page, pageSize: pageSize);
+      }
+    }
   }
 
   /// Get active (onway) parcels
@@ -95,13 +137,13 @@ extension ParcelApi on ApiService {
     return await _getRoleAwareParcels(
       customerPath: '/customer/onway-parcels/',
       driverPath: '/driver/onway-parcels/',
+      helperPath: '/helper/parcels/onway/',
       page: page,
       pageSize: pageSize,
     );
   }
 
-  /// Get accepted parcels list for drivers
-  /// GET /customer/accepted-parcels/
+  /// Get accepted parcels list
   Future<Map<String, dynamic>> fetchAcceptedParcels({
     int page = 1,
     int pageSize = 20,
@@ -109,6 +151,7 @@ extension ParcelApi on ApiService {
     return await _getRoleAwareParcels(
       customerPath: '/customer/accepted-parcels/',
       driverPath: '/driver/accepted-parcels/',
+      helperPath: '/helper/parcels/accepted/',
       page: page,
       pageSize: pageSize,
     );
@@ -122,6 +165,7 @@ extension ParcelApi on ApiService {
     return await _getRoleAwareParcels(
       customerPath: '/customer/parcels/delivered/',
       driverPath: '/driver/parcels/delivered/',
+      helperPath: '/helper/parcels/delivered/',
       page: page,
       pageSize: pageSize,
     );
@@ -135,6 +179,7 @@ extension ParcelApi on ApiService {
     return await _getRoleAwareParcels(
       customerPath: '/customer/parcels/cancelled/',
       driverPath: '/driver/parcels/cancelled/',
+      helperPath: '/helper/parcels/cancelled/',
       page: page,
       pageSize: pageSize,
     );
@@ -149,6 +194,7 @@ extension ParcelApi on ApiService {
     return await _getRoleAwareParcels(
       customerPath: '/customer/parcels/pending/',
       driverPath: '/driver/parcels/pending/',
+      helperPath: '/helper/parcels/available/',
       page: page,
       pageSize: pageSize,
       isPaid: isPaid,
@@ -156,9 +202,27 @@ extension ParcelApi on ApiService {
   }
 
   /// Get parcel details by id
-  /// GET /customer/parcels/{id}/
+  /// GET /helper/parcels/{id}/ or /customer/parcels/{id}/
   Future<Map<String, dynamic>> fetchParcelDetails({required int id}) async {
+    final role = _currentRole();
+    if (role == 'helper') {
+      try {
+        return await getJson('/helper/parcels/$id/');
+      } on ApiException catch (_) {
+        return await getJson('/customer/parcels/$id/');
+      }
+    }
     return await getJson('/customer/parcels/$id/');
+  }
+
+  /// Helper accept parcel request: POST /api/helper/parcels/{id}/accept/
+  Future<Map<String, dynamic>> acceptHelperParcel({required int id}) async {
+    return await postJson('/helper/parcels/$id/accept/', body: const {});
+  }
+
+  /// Helper cancel accepted deal: POST /api/helper/parcels/{id}/cancel-deal/
+  Future<Map<String, dynamic>> cancelHelperDeal({required int id}) async {
+    return await postJson('/helper/parcels/$id/cancel-deal/', body: const {});
   }
 
   /// Update parcel delivery status
@@ -173,7 +237,7 @@ extension ParcelApi on ApiService {
     );
   }
 
-  /// Upload pickup proof image
+  /// Upload pickup proof image (Driver only)
   /// PATCH multipart /driver/parcels/{id}/pickup/
   Future<Map<String, dynamic>> uploadPickupProofImage({
     required int id,
@@ -186,7 +250,7 @@ extension ParcelApi on ApiService {
     );
   }
 
-  /// Upload dropoff proof image
+  /// Upload dropoff proof image (Driver only)
   /// PATCH multipart /driver/parcels/{id}/dropoff/
   Future<Map<String, dynamic>> uploadDropoffProofImage({
     required int id,
@@ -219,6 +283,12 @@ extension ParcelApi on ApiService {
   /// Cancel a parcel by ID
   /// PATCH /customer/parcel/cancel/{id}/
   Future<Map<String, dynamic>> cancelParcel({required int id}) async {
+    final role = _currentRole();
+    if (role == 'helper') {
+      try {
+        return await cancelHelperDeal(id: id);
+      } catch (_) {}
+    }
     return await patchJson('/customer/parcel/cancel/$id/', body: const {});
   }
 
@@ -231,8 +301,8 @@ extension ParcelApi on ApiService {
   }) async {
     final body = {
       'parcel_id': parcelId,
-      if (successUrl != null) 'success_url': successUrl,
-      if (cancelUrl != null) 'cancel_url': cancelUrl,
+      'success_url': ?successUrl,
+      'cancel_url': ?cancelUrl,
     };
     return await postJson('/checkout/payment/', body: body);
   }

@@ -1,4 +1,4 @@
-package com.nishan.digaxy
+package com.digaxy
 
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine

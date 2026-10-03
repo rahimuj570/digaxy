@@ -61,9 +61,9 @@ import '../modules/helper/notification/views/helper_notification_view.dart';
 import '../modules/helper/task/bindings/helper_task_binding.dart';
 import '../modules/helper/task/views/helper_task_detail_view.dart';
 import '../modules/helper/task/views/helper_task_active_view.dart';
-import '../modules/helper/task/views/helper_task_live_view.dart';
 import '../modules/helper/task/bindings/helper_task_active_binding.dart';
 import '../modules/helper/task/bindings/helper_task_live_binding.dart';
+import '../modules/helper/task/views/helper_task_live_view.dart';
 import '../modules/helper/earnings/bindings/earnings_binding.dart';
 import '../modules/helper/earnings/bindings/payout_binding.dart';
 import '../modules/helper/earnings/views/earnings_view.dart';
@@ -446,17 +446,17 @@ class AppPages {
     ),
     // Helper task pages
     GetPage(
-      name: '/helper/task/detail',
+      name: _Paths.HELPER_TASK_DETAIL,
       page: () => const HelperTaskDetailView(),
       binding: HelperTaskBinding(),
     ),
     GetPage(
-      name: '/helper/task/active',
+      name: _Paths.HELPER_TASK_ACTIVE,
       page: () => const HelperTaskActiveView(),
       binding: HelperTaskActiveBinding(),
     ),
     GetPage(
-      name: '/helper/task/live',
+      name: _Paths.HELPER_TASK_LIVE,
       page: () => const HelperTaskLiveView(),
       binding: HelperTaskLiveBinding(),
     ),

@@ -3,8 +3,8 @@ import 'package:digaxy/services/notifications/notification_inbox_service.dart';
 import 'package:get/get.dart';
 
 class NotificationController extends GetxController {
-  final recentNotifications = <Map<String, String>>[].obs;
-  final notifications = <Map<String, String>>[].obs;
+  final isLoading = false.obs;
+  final notifications = <Map<String, dynamic>>[].obs;
 
   @override
   void onInit() {
@@ -13,14 +13,17 @@ class NotificationController extends GetxController {
     final inbox = Get.isRegistered<NotificationInboxService>()
         ? Get.find<NotificationInboxService>()
         : Get.put(NotificationInboxService(), permanent: true);
-    recentNotifications.assignAll(inbox.recentNotifications);
-    recentNotifications.bindStream(inbox.recentNotifications.stream);
     inbox.startListening();
 
-    _loadNotifications();
+    loadNotifications();
   }
 
-  Future<void> _loadNotifications() async {
+  Future<void> refreshNotifications() async {
+    await loadNotifications();
+  }
+
+  Future<void> loadNotifications() async {
+    isLoading.value = true;
     final api = Get.isRegistered<ApiService>()
         ? Get.find<ApiService>()
         : ApiService();
@@ -29,32 +32,33 @@ class NotificationController extends GetxController {
       final resp = await api.fetchNotificationsList(page: 1, pageSize: 50);
       final results = resp['results'];
       if (results is List) {
-        notifications.assignAll(
-          results
-              .whereType<Map>()
-              .map<Map<String, String>>(_mapNotification)
-              .toList(),
-        );
+        final remoteItems = results
+            .whereType<Map>()
+            .map<Map<String, dynamic>>(_mapNotification)
+            .toList();
+
+        notifications.assignAll(remoteItems);
       }
     } catch (_) {
-      // Keep existing list if fetch fails
+      // Keep existing list if remote fetch fails
+    } finally {
+      isLoading.value = false;
     }
   }
 
-  Map<String, String> _mapNotification(Map raw) {
+  Map<String, dynamic> _mapNotification(Map raw) {
     final title = (raw['title'] ?? 'Notification').toString().trim().isEmpty
         ? 'Notification'
-        : (raw['title'] ?? 'Notification').toString();
-    final subtitle =
-        (raw['message'] ??
-                raw['subtitle'] ??
-                raw['description'] ??
-                raw['body'] ??
-                '')
-            .toString();
-    final time = _formatTime(
-      (raw['time'] ?? raw['created_at'] ?? '').toString(),
-    );
+        : (raw['title'] ?? 'Notification').toString().trim();
+    final subtitle = (raw['message'] ??
+            raw['subtitle'] ??
+            raw['description'] ??
+            raw['body'] ??
+            '')
+        .toString()
+        .trim();
+    final createdAt = (raw['created_at'] ?? raw['time'] ?? '').toString();
+    final time = _formatTime(createdAt);
 
     final data = raw['data'];
     final dataMap = data is Map ? data : const <String, dynamic>{};
@@ -78,6 +82,7 @@ class NotificationController extends GetxController {
     final parcelId = extractFirst([
       raw['parcel_id'],
       raw['parcelId'],
+      raw['parcel'],
       dataMap['parcel_id'],
       dataMap['parcelId'],
       dataMap['parcel_uuid'],
@@ -87,29 +92,53 @@ class NotificationController extends GetxController {
     final parcelNumericId = extractNumeric([
       raw['parcel_id'],
       raw['parcelId'],
+      raw['parcel'],
       raw['parcel_numeric_id'],
+      raw['parcel_pk'],
       dataMap['parcel_id'],
       dataMap['parcelId'],
       dataMap['parcel_numeric_id'],
       dataMap['parcel_pk'],
     ]);
 
+    final isRead = raw['is_read'] == true;
+
     return {
+      'id': raw['id'],
       'title': title,
       'subtitle': subtitle,
+      'message': subtitle,
       'time': time,
+      'created_at_raw': createdAt,
       'parcel_id': parcelId,
       'parcel_numeric_id': parcelNumericId,
+      'is_read': isRead,
     };
   }
 
   String _formatTime(String raw) {
     final text = raw.trim();
-    if (text.isEmpty) return 'Now';
+    if (text.isEmpty) return '';
 
     try {
       final dt = DateTime.parse(text).toLocal();
-      final day = dt.day.toString().padLeft(2, '0');
+      final now = DateTime.now();
+      final diff = now.difference(dt);
+
+      if (diff.inMinutes < 1) return 'Just now';
+      if (diff.inMinutes < 60) return '${diff.inMinutes}m ago';
+      if (diff.inHours < 24 && now.day == dt.day) {
+        final hour = dt.hour % 12 == 0 ? 12 : dt.hour % 12;
+        final ampm = dt.hour >= 12 ? 'PM' : 'AM';
+        final min = dt.minute.toString().padLeft(2, '0');
+        return '$hour:$min $ampm';
+      }
+      if (diff.inDays <= 1 || (now.day - dt.day == 1 && diff.inHours < 48)) {
+        final hour = dt.hour % 12 == 0 ? 12 : dt.hour % 12;
+        final ampm = dt.hour >= 12 ? 'PM' : 'AM';
+        final min = dt.minute.toString().padLeft(2, '0');
+        return 'Yesterday, $hour:$min $ampm';
+      }
       const months = [
         'Jan',
         'Feb',
@@ -122,20 +151,23 @@ class NotificationController extends GetxController {
         'Sep',
         'Oct',
         'Nov',
-        'Dec',
+        'Dec'
       ];
       final month = months[dt.month - 1];
-      final hour24 = dt.hour;
-      final minute = dt.minute.toString().padLeft(2, '0');
-      final hour12 = hour24 == 0 ? 12 : (hour24 > 12 ? hour24 - 12 : hour24);
-      final amPm = hour24 >= 12 ? 'PM' : 'AM';
-      return '$day $month, $hour12:$minute $amPm';
+      final hour = dt.hour % 12 == 0 ? 12 : dt.hour % 12;
+      final ampm = dt.hour >= 12 ? 'PM' : 'AM';
+      final min = dt.minute.toString().padLeft(2, '0');
+      return '${dt.day} $month, $hour:$min $ampm';
     } catch (_) {
       return text;
     }
   }
 
   void markAllRead() {
-    // placeholder: would mark notifications as read
+    for (var i = 0; i < notifications.length; i++) {
+      final updated = Map<String, dynamic>.from(notifications[i]);
+      updated['is_read'] = true;
+      notifications[i] = updated;
+    }
   }
 }

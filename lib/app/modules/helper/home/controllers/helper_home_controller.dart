@@ -1,7 +1,10 @@
 import 'dart:convert';
 
 import 'package:digaxy/services/api/api_service.dart';
+import 'package:digaxy/services/live_location/driver_location_publisher_service.dart';
+import 'package:digaxy/services/maps/google_places_service.dart';
 import 'package:digaxy/shared/api_keys.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:get/get.dart';
 import 'package:get_storage/get_storage.dart';
 import 'package:http/http.dart' as http;
@@ -13,8 +16,14 @@ class HelperHomeController extends GetxController {
   final helperName = 'Helper'.obs;
   final isOnline = true.obs;
 
+  final currentAddress = 'Detecting location...'.obs;
+  final currentLatitude = RxnDouble();
+  final currentLongitude = RxnDouble();
+  final isLoadingLocation = false.obs;
+
   late final ApiService _api;
   late final GetStorage _box;
+  final _placesService = const GooglePlacesService();
 
   @override
   void onInit() {
@@ -23,8 +32,85 @@ class HelperHomeController extends GetxController {
         ? Get.find<ApiService>()
         : ApiService();
     _box = GetStorage();
+    _loadOnlineStatus();
     _loadHelperName();
     refreshActiveDeliveries();
+    fetchCurrentLocation();
+  }
+
+  void _loadOnlineStatus() {
+    final saved = _box.read('driver_is_online') as bool? ??
+        _box.read('helper_is_online') as bool?;
+    if (saved != null) {
+      isOnline.value = saved;
+    }
+  }
+
+  void toggleOnlineStatus() {
+    setOnlineStatus(!isOnline.value);
+  }
+
+  void setOnlineStatus(bool value) {
+    isOnline.value = value;
+    _box.write('driver_is_online', value);
+    _box.write('helper_is_online', value);
+    if (Get.isRegistered<DriverLocationPublisherService>()) {
+      Get.find<DriverLocationPublisherService>().setOnline(value);
+    }
+  }
+
+  Future<void> fetchCurrentLocation() async {
+    try {
+      isLoadingLocation.value = true;
+      final enabled = await Geolocator.isLocationServiceEnabled();
+      if (!enabled) {
+        currentAddress.value = 'Location service disabled';
+        isLoadingLocation.value = false;
+        return;
+      }
+
+      var permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+        if (permission == LocationPermission.denied) {
+          currentAddress.value = 'Location permission denied';
+          isLoadingLocation.value = false;
+          return;
+        }
+      }
+
+      if (permission == LocationPermission.deniedForever) {
+        currentAddress.value = 'Location permission denied';
+        isLoadingLocation.value = false;
+        return;
+      }
+
+      final pos = await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.high,
+        timeLimit: const Duration(seconds: 5),
+      );
+
+      currentLatitude.value = pos.latitude;
+      currentLongitude.value = pos.longitude;
+
+      final address = await _placesService.reverseGeocode(
+        pos.latitude,
+        pos.longitude,
+      );
+
+      if (address != null && address.trim().isNotEmpty) {
+        currentAddress.value = address.trim();
+      } else {
+        currentAddress.value =
+            'Current Location (${pos.latitude.toStringAsFixed(4)}, ${pos.longitude.toStringAsFixed(4)})';
+      }
+    } catch (e) {
+      if (currentAddress.value == 'Detecting location...') {
+        currentAddress.value = 'Location unavailable';
+      }
+    } finally {
+      isLoadingLocation.value = false;
+    }
   }
 
   void _loadHelperName() {
@@ -184,9 +270,5 @@ class HelperHomeController extends GetxController {
     final text = value?.toString().trim() ?? '';
     if (text.isEmpty) return null;
     return double.tryParse(text);
-  }
-
-  void toggleOnlineStatus(bool value) {
-    isOnline.value = value;
   }
 }

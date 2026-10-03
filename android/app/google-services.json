@@ -1,21 +1,21 @@
 {
   "project_info": {
-    "project_number": "741296019981",
-    "project_id": "proud-voice-471806-j8",
-    "storage_bucket": "proud-voice-471806-j8.firebasestorage.app"
+    "project_number": "119548630356",
+    "project_id": "adigarson-cd858",
+    "storage_bucket": "adigarson-cd858.firebasestorage.app"
   },
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:741296019981:android:175e17c2519413b9d31344",
+        "mobilesdk_app_id": "1:119548630356:android:55fb182d2cfdcdeaa324c1",
         "android_client_info": {
-          "package_name": "com.nishan.digaxy"
+          "package_name": "com.digaxy"
         }
       },
       "oauth_client": [],
       "api_key": [
         {
-          "current_key": "AIzaSyAxy_9CMJegjWJJKEinudU-8FMlznscIc8"
+          "current_key": "AIzaSyBrp_WWbGIPKRlA-20zJRFSf_SRggOt4Uc"
         }
       ],
       "services": {

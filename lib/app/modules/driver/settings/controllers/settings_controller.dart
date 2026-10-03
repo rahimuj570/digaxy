@@ -18,6 +18,7 @@ class SettingsController extends GetxController {
 
   final supportEmail = TextEditingController(text: 'support@digaxy.com');
   final supportMessage = TextEditingController();
+  final isSendingSupport = false.obs;
 
   @override
   void onClose() {
@@ -67,50 +68,40 @@ class SettingsController extends GetxController {
     // Show a visible snackbar and wait a short moment before navigating back
     AppSnackbar.success('Success', 'Password changed');
 
-    // Wait for the snackbar to be visible then close it and pop the screen
-    Future.delayed(Duration(milliseconds: 1200), () async {
-      try {
-        // close snackbar overlay first (if present)
+    Future.delayed(const Duration(milliseconds: 1200), () {
+      if (Get.isSnackbarOpen) {
         Get.closeCurrentSnackbar();
-        // small pause to ensure overlay is removed
-        await Future.delayed(Duration(milliseconds: 100));
-        // try using Navigator with Get.context to pop the actual route
-        final ctx = Get.context;
-        if (ctx != null) {
-          try {
-            Navigator.of(ctx).pop();
-            return;
-          } catch (_) {}
-        }
-        // fallback to Get.back()
-        try {
-          Get.back();
-        } catch (_) {}
-      } catch (_) {}
+      }
+      Get.back();
     });
   }
 
-  void sendSupport() {
-    // Show success snackbar and go back to previous screen
-    AppSnackbar.success('Sent', 'Support request sent');
+  Future<void> sendSupport() async {
+    final msg = supportMessage.text.trim();
+    if (msg.isEmpty) {
+      AppSnackbar.show('Error', 'Please describe your problem');
+      return;
+    }
 
-    // wait then close snackbar and pop
-    Future.delayed(Duration(milliseconds: 1200), () async {
-      try {
-        Get.closeCurrentSnackbar();
-        await Future.delayed(Duration(milliseconds: 100));
-        final ctx = Get.context;
-        if (ctx != null) {
-          try {
-            Navigator.of(ctx).pop();
-            return;
-          } catch (_) {}
+    try {
+      isSendingSupport.value = true;
+      await _api.submitSupport(message: msg);
+      supportMessage.clear();
+      AppSnackbar.success('Success', 'Support request submitted successfully');
+
+      Future.delayed(const Duration(milliseconds: 1200), () {
+        if (Get.isSnackbarOpen) {
+          Get.closeCurrentSnackbar();
         }
-        try {
-          Get.back();
-        } catch (_) {}
-      } catch (_) {}
-    });
+        Get.back();
+      });
+    } catch (e) {
+      debugPrint('Submit support error: $e');
+      final err = e is ApiException ? e.message : 'Failed to submit support request';
+      AppSnackbar.error('Failed', err);
+    } finally {
+      isSendingSupport.value = false;
+    }
   }
 
   void logout() {
